@@ -1,0 +1,63 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Poppins", "Inter", sans-serif;
+  --color-brand: #0b5cab;
+  --color-brand-dark: #084782;
+  --color-navy: #0a2540;
+  --color-ink: #1c2b3a;
+  --color-muted: #5b6b7c;
+  --color-line: #d7e0ea;
+  --color-canvas: #f3f6fa;
+  --color-soft: #e8f1fb;
+  --color-success: #1b7a4e;
+  --color-warning: #b45309;
+  --color-danger: #b42318;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+h1,
+h2,
+h3,
+.font-display {
+  font-family: var(--font-display);
+  color: var(--color-navy);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+.flag-bar {
+  height: 4px;
+  background: linear-gradient(
+    to right,
+    #ff9933 0 33.33%,
+    #ffffff 33.33% 66.66%,
+    #138808 66.66% 100%
+  );
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.app-shadow {
+  box-shadow: 0 1px 2px rgba(10, 37, 64, 0.06), 0 1px 3px rgba(10, 37, 64, 0.04);
+}
