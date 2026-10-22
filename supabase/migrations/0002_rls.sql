@@ -78,26 +78,26 @@ create policy cases_update on public.complaint_cases
 
 create policy actions_select on public.case_actions
   for select using (
-    exists (select 1 from public.complaint_cases c where c.id = case_id and public.can_read_case(c))
+    exists (select 1 from public.complaint_cases c where c.id = case_actions.case_id and public.can_read_case(c))
   );
 create policy actions_insert on public.case_actions
   for insert with check (
-    exists (select 1 from public.complaint_cases c where c.id = case_id and public.can_read_case(c))
+    exists (select 1 from public.complaint_cases c where c.id = case_actions.case_id and public.can_read_case(c))
   );
 
 create policy documents_select on public.case_documents
   for select using (
-    exists (select 1 from public.complaint_cases c where c.id = case_id and public.can_read_case(c))
+    exists (select 1 from public.complaint_cases c where c.id = case_documents.case_id and public.can_read_case(c))
   );
 create policy documents_insert on public.case_documents
   for insert with check (
-    exists (select 1 from public.complaint_cases c where c.id = case_id and public.can_read_case(c))
+    exists (select 1 from public.complaint_cases c where c.id = case_documents.case_id and public.can_read_case(c))
   );
 
 create policy links_select on public.case_links
   for select using (
-    exists (select 1 from public.complaint_cases c where c.id = source_case_id and public.can_read_case(c))
-    or exists (select 1 from public.complaint_cases c where c.id = target_case_id and public.can_read_case(c))
+    exists (select 1 from public.complaint_cases c where c.id = case_links.source_case_id and public.can_read_case(c))
+    or exists (select 1 from public.complaint_cases c where c.id = case_links.target_case_id and public.can_read_case(c))
   );
 create policy links_write on public.case_links
   for all using (
@@ -108,7 +108,7 @@ create policy links_write on public.case_links
 
 create policy embeddings_select on public.complaint_embeddings
   for select using (
-    exists (select 1 from public.complaint_cases c where c.id = case_id and public.can_read_case(c))
+    exists (select 1 from public.complaint_cases c where c.id = complaint_embeddings.case_id and public.can_read_case(c))
   );
 
 create policy notifications_own on public.notifications

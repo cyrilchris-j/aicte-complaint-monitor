@@ -220,7 +220,7 @@ export function CaseDetailPage() {
       <Card title="AI-assisted case analysis">
         <p className="text-[14px]">{insights.summary}</p>
         <p className="mt-2 text-[13px] text-muted">
-          Suggested category: {insights.suggestedCategory.category} ({Math.round(insights.suggestedCategory.confidence * 100)}% lexical). Categories are demo labels, not an official AICTE classification.
+          Suggested category: {insights.suggestedCategory.category} ({Math.round(insights.suggestedCategory.confidence * 100)}% lexical confidence).
         </p>
         <p className="mt-2 text-[13px] font-medium">AI-assisted suggestion — officer decision required.</p>
       </Card>
@@ -463,7 +463,7 @@ export function CaseDetailPage() {
                         Download
                       </a>
                     ) : (
-                      <span className="text-muted text-[12px]">On record (seed)</span>
+                      <span className="text-muted text-[12px]">On record</span>
                     )}
                   </div>
                 </li>

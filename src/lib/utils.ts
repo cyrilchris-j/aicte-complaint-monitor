@@ -5,8 +5,8 @@ export function cn(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(' ')
 }
 
-export function uid(prefix = 'id') {
-  return `${prefix}-${crypto.randomUUID()}`
+export function uid(_prefix?: string) {
+  return crypto.randomUUID()
 }
 
 export function formatDate(iso: string) {

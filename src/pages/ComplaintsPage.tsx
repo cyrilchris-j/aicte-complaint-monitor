@@ -160,48 +160,60 @@ export function ComplaintsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#e2e8f0]">
-              {rows.map((c) => (
-                <tr key={c.id} className="hover:bg-[#f8fafc] transition">
-                  <td className="px-3 py-2.5 font-bold font-mono text-[#003366]">{c.case_id}</td>
-                  <td className="px-3 py-2.5 font-semibold text-[#002244] max-w-[220px]">
-                    <span className="block leading-tight">{snapshot.institutions.find((i) => i.id === c.institution_id)?.institution_name}</span>
-                    <span className="text-[11px] font-normal text-[#64748b] line-clamp-1">{c.subject}</span>
-                  </td>
-                  <td className="px-3 py-2.5 text-[#334155]">{c.complaint_category}</td>
-                  <td className="px-3 py-2.5">
-                    <span className="bg-[#eef4fa] text-[#003366] font-bold text-[11px] px-2 py-0.5 rounded border border-[#cbd5e1]">
-                      {snapshot.bureaus.find((b) => b.id === c.bureau_id)?.code}
-                    </span>
-                  </td>
-                  {showCols.officer ? (
-                    <td className="px-3 py-2.5 text-[#334155] text-[12px]">
-                      {snapshot.profiles.find((p) => p.id === c.assigned_officer_id)?.full_name ?? <span className="text-[#94a3b8]">Unassigned</span>}
-                    </td>
-                  ) : null}
-                  <td className="px-3 py-2.5"><StatusBadge status={c.status} /></td>
-                  <td className="px-3 py-2.5"><PriorityBadge priority={c.priority} /></td>
-                  <td className="px-3 py-2.5 text-[#64748b] text-[12px]">{formatDate(c.received_date)}</td>
-                  <td className="px-3 py-2.5 text-[#64748b] text-[12px]">{formatDate(c.expected_disposal_date)}</td>
-                  {showCols.sla ? <td className="px-3 py-2.5"><SlaBadge state={slaState(c)} /></td> : null}
-                  {showCols.overlap ? (
-                    <td className="px-3 py-2.5">
-                      {c.overlap_status !== 'NONE' ? (
-                        <span className="bg-[#fff7ed] text-[#b45309] font-bold text-[10px] px-1.5 py-0.5 rounded border border-[#fde68a]">
-                          {c.overlap_status.replaceAll('_', ' ')}
-                        </span>
-                      ) : (
-                        <span className="text-[#94a3b8] text-[11px]">None</span>
-                      )}
-                    </td>
-                  ) : null}
-                  <td className="px-3 py-2.5 text-[#64748b] text-[12px]">{formatDate(c.last_action_date)}</td>
-                  <td className="px-3 py-2.5 text-center">
-                    <Link to={`/complaints/${c.id}`}>
-                      <Button variant="secondary" className="text-[11px] py-1">Open Case</Button>
+              {rows.length === 0 ? (
+                <tr>
+                  <td colSpan={13} className="px-4 py-12 text-center text-[#64748b]">
+                    <p className="font-semibold text-[14px] text-[#334155]">No complaint cases found</p>
+                    <p className="text-[12px] text-[#64748b] mt-1">Register a new case or adjust your search filters.</p>
+                    <Link to="/complaints/new" className="mt-3 inline-block">
+                      <Button className="text-[12px] py-1">+ Register Case</Button>
                     </Link>
                   </td>
                 </tr>
-              ))}
+              ) : (
+                rows.map((c) => (
+                  <tr key={c.id} className="hover:bg-[#f8fafc] transition">
+                    <td className="px-3 py-2.5 font-bold font-mono text-[#003366]">{c.case_id}</td>
+                    <td className="px-3 py-2.5 font-semibold text-[#002244] max-w-[220px]">
+                      <span className="block leading-tight">{snapshot.institutions.find((i) => i.id === c.institution_id)?.institution_name}</span>
+                      <span className="text-[11px] font-normal text-[#64748b] line-clamp-1">{c.subject}</span>
+                    </td>
+                    <td className="px-3 py-2.5 text-[#334155]">{c.complaint_category}</td>
+                    <td className="px-3 py-2.5">
+                      <span className="bg-[#eef4fa] text-[#003366] font-bold text-[11px] px-2 py-0.5 rounded border border-[#cbd5e1]">
+                        {snapshot.bureaus.find((b) => b.id === c.bureau_id)?.code}
+                      </span>
+                    </td>
+                    {showCols.officer ? (
+                      <td className="px-3 py-2.5 text-[#334155] text-[12px]">
+                        {snapshot.profiles.find((p) => p.id === c.assigned_officer_id)?.full_name ?? <span className="text-[#94a3b8]">Unassigned</span>}
+                      </td>
+                    ) : null}
+                    <td className="px-3 py-2.5"><StatusBadge status={c.status} /></td>
+                    <td className="px-3 py-2.5"><PriorityBadge priority={c.priority} /></td>
+                    <td className="px-3 py-2.5 text-[#64748b] text-[12px]">{formatDate(c.received_date)}</td>
+                    <td className="px-3 py-2.5 text-[#64748b] text-[12px]">{formatDate(c.expected_disposal_date)}</td>
+                    {showCols.sla ? <td className="px-3 py-2.5"><SlaBadge state={slaState(c)} /></td> : null}
+                    {showCols.overlap ? (
+                      <td className="px-3 py-2.5">
+                        {c.overlap_status !== 'NONE' ? (
+                          <span className="bg-[#fff7ed] text-[#b45309] font-bold text-[10px] px-1.5 py-0.5 rounded border border-[#fde68a]">
+                            {c.overlap_status.replaceAll('_', ' ')}
+                          </span>
+                        ) : (
+                          <span className="text-[#94a3b8] text-[11px]">None</span>
+                        )}
+                      </td>
+                    ) : null}
+                    <td className="px-3 py-2.5 text-[#64748b] text-[12px]">{formatDate(c.last_action_date)}</td>
+                    <td className="px-3 py-2.5 text-center">
+                      <Link to={`/complaints/${c.id}`}>
+                        <Button variant="secondary" className="text-[11px] py-1">Open Case</Button>
+                      </Link>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

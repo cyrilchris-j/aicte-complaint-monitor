@@ -31,40 +31,48 @@ export function VerificationPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-[#e2e8f0]">
-            {queue.slice(0, 60).map((c) => (
-              <tr key={c.id} className="hover:bg-[#f8fafc] transition">
-                <td className="px-3.5 py-3">
-                  <Link className="font-mono font-bold text-[#003366] hover:underline" to={`/complaints/${c.id}`}>{c.case_id}</Link>
-                  <div className="mt-1"><StatusBadge status={c.status} /></div>
-                </td>
-                <td className="px-3 py-3 font-medium text-[#1e293b]">{snapshot.institutions.find((i) => i.id === c.institution_id)?.institution_name}</td>
-                <td className="px-3 py-3">
-                  <span className={`inline-block px-2 py-0.5 rounded text-[11px] font-bold ${c.mobile_verified ? 'bg-[#dcfce7] text-[#15803d]' : 'bg-[#fef3c7] text-[#b45309]'}`}>
-                    {c.mobile_verified ? '✓ Verified' : '⏳ Pending'}
-                  </span>
-                </td>
-                <td className="px-3 py-3">
-                  <span className={`inline-block px-2 py-0.5 rounded text-[11px] font-bold ${c.documents_received ? 'bg-[#dcfce7] text-[#15803d]' : 'bg-[#fee2e2] text-[#b91c1c]'}`}>
-                    {c.documents_received ? '✓ Received' : 'Required'}
-                  </span>
-                </td>
-                <td className="px-3 py-3">
-                  <span className={`inline-block px-2 py-0.5 rounded text-[11px] font-bold ${c.institution_response_received ? 'bg-[#dcfce7] text-[#15803d]' : 'bg-[#f1f5f9] text-[#64748b]'}`}>
-                    {c.institution_response_received ? '✓ Received' : 'Pending'}
-                  </span>
-                </td>
-                <td className="px-3 py-3"><VerifyBadge status={c.verification_status} /></td>
-                <td className="px-3 py-3">
-                  {snapshot.suspiciousPatterns.some((s) => s.related_case_ids.includes(c.id)) ? (
-                    <span className="inline-block bg-[#fee2e2] text-[#b91c1c] border border-[#fca5a5] px-2 py-0.5 rounded text-[11px] font-bold">
-                      ⚠ Cluster Pattern
-                    </span>
-                  ) : (
-                    <span className="text-[#94a3b8] text-[12px]">—</span>
-                  )}
+            {queue.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="px-4 py-12 text-center text-[#64748b]">
+                  No complaint cases currently pending verification.
                 </td>
               </tr>
-            ))}
+            ) : (
+              queue.slice(0, 60).map((c) => (
+                <tr key={c.id} className="hover:bg-[#f8fafc] transition">
+                  <td className="px-3.5 py-3">
+                    <Link className="font-mono font-bold text-[#003366] hover:underline" to={`/complaints/${c.id}`}>{c.case_id}</Link>
+                    <div className="mt-1"><StatusBadge status={c.status} /></div>
+                  </td>
+                  <td className="px-3 py-3 font-medium text-[#1e293b]">{snapshot.institutions.find((i) => i.id === c.institution_id)?.institution_name}</td>
+                  <td className="px-3 py-3">
+                    <span className={`inline-block px-2 py-0.5 rounded text-[11px] font-bold ${c.mobile_verified ? 'bg-[#dcfce7] text-[#15803d]' : 'bg-[#fef3c7] text-[#b45309]'}`}>
+                      {c.mobile_verified ? '✓ Verified' : '⏳ Pending'}
+                    </span>
+                  </td>
+                  <td className="px-3 py-3">
+                    <span className={`inline-block px-2 py-0.5 rounded text-[11px] font-bold ${c.documents_received ? 'bg-[#dcfce7] text-[#15803d]' : 'bg-[#fee2e2] text-[#b91c1c]'}`}>
+                      {c.documents_received ? '✓ Received' : 'Required'}
+                    </span>
+                  </td>
+                  <td className="px-3 py-3">
+                    <span className={`inline-block px-2 py-0.5 rounded text-[11px] font-bold ${c.institution_response_received ? 'bg-[#dcfce7] text-[#15803d]' : 'bg-[#f1f5f9] text-[#64748b]'}`}>
+                      {c.institution_response_received ? '✓ Received' : 'Pending'}
+                    </span>
+                  </td>
+                  <td className="px-3 py-3"><VerifyBadge status={c.verification_status} /></td>
+                  <td className="px-3 py-3">
+                    {snapshot.suspiciousPatterns.some((s) => s.related_case_ids.includes(c.id)) ? (
+                      <span className="inline-block bg-[#fee2e2] text-[#b91c1c] border border-[#fca5a5] px-2 py-0.5 rounded text-[11px] font-bold">
+                        ⚠ Cluster Pattern
+                      </span>
+                    ) : (
+                      <span className="text-[#94a3b8] text-[12px]">—</span>
+                    )}
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>

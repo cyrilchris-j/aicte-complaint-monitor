@@ -16,7 +16,7 @@ export function ForgotPasswordPage() {
         <p className="text-[12px] font-semibold tracking-wide text-brand uppercase">AICTE · {PRODUCT_NAME}</p>
         <h1 className="mt-2 font-display text-[28px] text-navy">Reset password</h1>
         <p className="mt-2 text-[14px] text-muted">
-          Password reset is delivered through Supabase Auth when the project is connected. In Demo Data mode a reset message is recorded only.
+          Password reset instructions will be delivered to your official AICTE email address through Supabase Auth.
         </p>
         <form
           className="mt-6 rounded-sm border border-line bg-white p-5 app-shadow"

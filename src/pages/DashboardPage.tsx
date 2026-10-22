@@ -165,22 +165,33 @@ export function DashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#e2e8f0]">
-                {recent.map((c) => (
-                  <tr key={c.id} className="hover:bg-[#f8fafc] transition">
-                    <td className="px-3 py-2.5">
-                      <Link className="font-bold font-mono text-[#003366] hover:underline" to={`/complaints/${c.id}`}>
-                        {c.case_id}
+                {recent.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-8 text-center text-[#64748b]">
+                      <p className="font-semibold text-[#334155]">No complaint cases registered yet</p>
+                      <Link to="/complaints/new" className="text-brand font-semibold text-[12px] hover:underline mt-1 inline-block">
+                        + Register a complaint case
                       </Link>
                     </td>
-                    <td className="px-3 py-2.5 font-medium text-[#002244]">
-                      {snapshot.institutions.find((i) => i.id === c.institution_id)?.institution_name}
-                    </td>
-                    <td className="px-3 py-2.5">
-                      <StatusBadge status={c.status} />
-                    </td>
-                    <td className="px-3 py-2.5 text-[#64748b] text-[12px]">{formatDate(c.last_action_date)}</td>
                   </tr>
-                ))}
+                ) : (
+                  recent.map((c) => (
+                    <tr key={c.id} className="hover:bg-[#f8fafc] transition">
+                      <td className="px-3 py-2.5">
+                        <Link className="font-bold font-mono text-[#003366] hover:underline" to={`/complaints/${c.id}`}>
+                          {c.case_id}
+                        </Link>
+                      </td>
+                      <td className="px-3 py-2.5 font-medium text-[#002244]">
+                        {snapshot.institutions.find((i) => i.id === c.institution_id)?.institution_name}
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <StatusBadge status={c.status} />
+                      </td>
+                      <td className="px-3 py-2.5 text-[#64748b] text-[12px]">{formatDate(c.last_action_date)}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

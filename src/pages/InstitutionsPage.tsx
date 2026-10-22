@@ -1,8 +1,47 @@
 import { useMemo, useState, useSyncExternalStore } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { getSnapshot, institutionMetrics, subscribe } from '../demo/store'
+import { createInstitution, getSnapshot, institutionMetrics, subscribe } from '../demo/store'
 import { Button, Field, PageHeader, inputClass } from '../components/ui'
+import { Plus, Building2, X } from 'lucide-react'
+
+const INDIAN_STATES = [
+  'Andhra Pradesh',
+  'Assam',
+  'Bihar',
+  'Chandigarh',
+  'Chhattisgarh',
+  'Delhi',
+  'Gujarat',
+  'Haryana',
+  'Himachal Pradesh',
+  'Jammu & Kashmir',
+  'Jharkhand',
+  'Karnataka',
+  'Kerala',
+  'Madhya Pradesh',
+  'Maharashtra',
+  'Odisha',
+  'Punjab',
+  'Rajasthan',
+  'Tamil Nadu',
+  'Telangana',
+  'Uttar Pradesh',
+  'Uttarakhand',
+  'West Bengal',
+  'Other',
+]
+
+const AICTE_REGIONS = [
+  'Central',
+  'Eastern',
+  'Northern',
+  'North-West',
+  'South-Central',
+  'Southern',
+  'South-West',
+  'Western',
+]
 
 export function InstitutionsPage() {
   const { profile } = useAuth()
@@ -12,6 +51,17 @@ export function InstitutionsPage() {
   const [region, setRegion] = useState('')
   const [status, setStatus] = useState('')
   const [volume, setVolume] = useState('')
+
+  // Modal for adding a new institution
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [newPermId, setNewPermId] = useState('')
+  const [newCity, setNewCity] = useState('')
+  const [newState, setNewState] = useState('Tamil Nadu')
+  const [newRegion, setNewRegion] = useState('Southern')
+  const [newType, setNewType] = useState('Engineering & Technology')
+  const [modalError, setModalError] = useState<string | null>(null)
+
   const rows = useMemo(() => {
     if (!profile) return []
     return snapshot.institutions
@@ -35,9 +85,42 @@ export function InstitutionsPage() {
   const states = [...new Set(snapshot.institutions.map((i) => i.state))].sort()
   const regions = [...new Set(snapshot.institutions.map((i) => i.region))].sort()
 
+  const handleCreate = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newName.trim() || !newPermId.trim() || !newCity.trim()) {
+      setModalError('Institution Name, Permanent ID, and City are required.')
+      return
+    }
+    createInstitution(
+      {
+        institution_name: newName,
+        aicte_permanent_id: newPermId,
+        city: newCity,
+        state: newState,
+        region: newRegion,
+        institution_type: newType,
+      },
+      profile,
+    )
+    setShowAddModal(false)
+    setNewName('')
+    setNewPermId('')
+    setNewCity('')
+    setModalError(null)
+  }
+
   return (
     <div>
-      <PageHeader title="Institutions" subtitle="Search by AICTE Permanent ID or name. Open Institution 360° for the complete case picture." />
+      <PageHeader
+        title="Institutions"
+        subtitle="Search by AICTE Permanent ID or name. Open Institution 360° for the complete case picture."
+        actions={
+          <Button onClick={() => setShowAddModal(true)} className="flex items-center gap-1.5">
+            <Plus size={16} />
+            <span>Add Institution</span>
+          </Button>
+        }
+      />
       <div className="mb-4 grid gap-3 md:grid-cols-5">
         <Field label="Search">
           <input className={inputClass} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name or Permanent ID" />
@@ -94,6 +177,18 @@ export function InstitutionsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#e2e8f0]">
+              {rows.length === 0 ? (
+                <tr>
+                  <td colSpan={11} className="px-4 py-12 text-center text-[#64748b]">
+                    <Building2 size={36} className="mx-auto mb-2 text-[#94a3b8]" />
+                    <p className="font-semibold text-[14px] text-[#334155]">No institutions registered</p>
+                    <p className="text-[12px] text-[#64748b] mt-1">Register an institution to begin managing complaint cases.</p>
+                    <Button onClick={() => setShowAddModal(true)} className="mt-3 text-[12px] py-1">
+                      + Add Institution
+                    </Button>
+                  </td>
+                </tr>
+              ) : null}
               {rows.map(({ i, m }) => (
                 <tr key={i.id} className="hover:bg-[#f8fafc] transition">
                   <td className="px-3 py-2.5 font-mono font-bold text-[#003366]">{i.aicte_permanent_id}</td>
@@ -125,6 +220,90 @@ export function InstitutionsPage() {
           </table>
         </div>
       </div>
+
+      {/* Add Institution Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-lg rounded-[4px] border border-[#cbd5e1] bg-white p-6 shadow-xl">
+            <div className="flex items-center justify-between border-b border-[#e2e8f0] pb-3 mb-4">
+              <div className="flex items-center gap-2 text-[#003366]">
+                <Building2 size={20} />
+                <h3 className="font-bold text-[16px]">Register New Institution</h3>
+              </div>
+              <button onClick={() => setShowAddModal(false)} className="text-[#64748b] hover:text-[#002244] p-1">
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={handleCreate} className="space-y-3.5">
+              <Field label="AICTE Permanent ID">
+                <input
+                  className={inputClass}
+                  placeholder="e.g., 1-12345678"
+                  value={newPermId}
+                  onChange={(e) => setNewPermId(e.target.value)}
+                  required
+                />
+              </Field>
+              <Field label="Institution Full Name">
+                <input
+                  className={inputClass}
+                  placeholder="e.g., National Institute of Engineering & Technology"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  required
+                />
+              </Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="City">
+                  <input
+                    className={inputClass}
+                    placeholder="e.g., Bengaluru"
+                    value={newCity}
+                    onChange={(e) => setNewCity(e.target.value)}
+                    required
+                  />
+                </Field>
+                <Field label="State">
+                  <select className={inputClass} value={newState} onChange={(e) => setNewState(e.target.value)}>
+                    {INDIAN_STATES.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </Field>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="AICTE Region">
+                  <select className={inputClass} value={newRegion} onChange={(e) => setNewRegion(e.target.value)}>
+                    {AICTE_REGIONS.map((r) => (
+                      <option key={r} value={r}>{r}</option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Institution Category / Stream">
+                  <select className={inputClass} value={newType} onChange={(e) => setNewType(e.target.value)}>
+                    <option>Engineering & Technology</option>
+                    <option>Management</option>
+                    <option>Pharmacy</option>
+                    <option>Polytechnic / Diploma</option>
+                    <option>Architecture & Planning</option>
+                    <option>Applied Arts & Crafts</option>
+                    <option>Other</option>
+                  </select>
+                </Field>
+              </div>
+              {modalError ? <p className="text-[13px] text-danger">{modalError}</p> : null}
+              <div className="flex justify-end gap-2 pt-2 border-t border-[#e2e8f0]">
+                <Button type="button" variant="secondary" onClick={() => setShowAddModal(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit">
+                  Save Institution
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -17,13 +17,13 @@ export function SettingsPage() {
         subtitle="Configure AI similarity detection bounds and Bureau SLA timelines. Changes apply across all Bureau workspaces."
         actions={
           <Button
-            variant="danger"
+            variant="secondary"
             onClick={() => {
               resetDemo()
-              setNotice('Prototype demo state reset to baseline seed records.')
+              setNotice('Workspace state refreshed from live database.')
             }}
           >
-            Reset Demo Data
+            Refresh from Database
           </Button>
         }
       />

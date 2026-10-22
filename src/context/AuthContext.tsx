@@ -9,12 +9,14 @@ import {
 } from '../demo/store'
 import type { Profile } from '../types'
 
+import { supabaseEnabled } from '../lib/supabase'
+
 interface AuthValue {
   profile: Profile | null
   loading: boolean
   demoMode: boolean
-  login: (email: string, password: string) => { ok: boolean; error?: string }
-  logout: () => void
+  login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }> | { ok: boolean; error?: string }
+  logout: () => Promise<void> | void
   demoPassword: string
 }
 
@@ -27,7 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       profile,
       loading: false,
-      demoMode: true,
+      demoMode: !supabaseEnabled,
       login: demoLogin,
       logout: demoLogout,
       demoPassword: DEMO_PASSWORD,

@@ -21,9 +21,9 @@ export function LoginPage() {
   const accounts = getSnapshot().accounts
   const profiles = getSnapshot().profiles
 
-  const handleSignIn = (loginEmail = email, loginPass = password) => {
+  const handleSignIn = async (loginEmail = email, loginPass = password) => {
     setError(null)
-    const res = login(loginEmail, loginPass)
+    const res = await login(loginEmail, loginPass)
     if (!res.ok) {
       setError(res.error ?? 'Unable to sign in')
     } else {
@@ -121,7 +121,7 @@ export function LoginPage() {
             <div className="bg-white rounded-[3px] border border-[#cbd5e1] p-5 shadow-sm">
               <div className="flex items-center justify-between border-b border-[#e2e8f0] pb-2 mb-3">
                 <span className="text-[13px] font-bold text-[#003366] uppercase tracking-wide">
-                  Quick Access: Official Demo Roles
+                  Quick Access: Official AICTE System Roles
                 </span>
                 <span className="text-[11px] font-semibold text-[#64748b]">
                   Default Password: <code className="bg-[#f1f5f9] px-1.5 py-0.5 rounded text-[#003366]">{demoPassword}</code>
