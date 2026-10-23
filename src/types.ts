@@ -10,12 +10,14 @@ export type Role = (typeof ROLES)[number]
 
 export const CASE_STATUSES = [
   'NEW',
+  'PENDING_VERIFICATION',
   'UNDER_REVIEW',
   'VERIFIED',
   'UNDER_PROCESS',
   'PENDING_INFORMATION',
   'TRANSFERRED',
   'ESCALATED',
+  'RESOLVED',
   'DISPOSED',
   'CLOSED',
 ] as const
@@ -55,15 +57,19 @@ export const RELATIONSHIP_TYPES = [
 export type RelationshipType = (typeof RELATIONSHIP_TYPES)[number]
 
 export const CATEGORIES = [
-  'Fees',
+  'Academic / Examination',
   'Admission',
-  'Faculty',
+  'Fees / Financial Issues',
   'Infrastructure',
-  'Course/Programme',
-  'Approval/Compliance',
-  'Examination',
-  'Scholarship/Student Benefits',
-  'Institutional Administration',
+  'Student Welfare',
+  'Ragging / Harassment',
+  'Women Safety',
+  'Child Safety',
+  'Cyber / Online Harassment',
+  'Faculty / Staff Issues',
+  'Hostel',
+  'Scholarship',
+  'Accreditation / Approval',
   'Other',
 ] as const
 export type Category = (typeof CATEGORIES)[number]
@@ -71,15 +77,16 @@ export type Category = (typeof CATEGORIES)[number]
 export const COMPLAINANT_TYPES = [
   'Student',
   'Faculty',
-  'Parent/Guardian',
-  'Stakeholder',
-  'Other',
-  'Anonymous/Confidential',
+  'Parent',
+  'Staff',
+  'Other Stakeholder',
+  'Anonymous / Confidential',
 ] as const
 export type ComplainantType = (typeof COMPLAINANT_TYPES)[number]
 
 export const SLA_STATES = ['WITHIN', 'APPROACHING', 'OVERDUE'] as const
 export type SlaState = (typeof SLA_STATES)[number]
+
 
 export interface Bureau {
   id: string
@@ -132,7 +139,11 @@ export interface ComplaintCase {
   complainant_type: ComplainantType
   complainant_name: string
   complainant_reference: string
+  complainant_email?: string
+  complainant_mobile?: string
   complaint_category: Category
+  sub_category?: string
+  incident_date?: string
   subject: string
   description: string
   priority: Priority
@@ -146,11 +157,31 @@ export interface ComplaintCase {
   overlap_status: OverlapStatus
   pending_transfer_bureau_id: string | null
   mobile_verified: boolean
+  email_verified?: boolean
   documents_received: boolean
   institution_response_received: boolean
   created_at: string
   updated_at: string
 }
+
+export interface OTPRecord {
+  id: string
+  identifier: string // email or mobile
+  type: 'email' | 'mobile'
+  otpHash: string
+  expiresAt: number
+  attempts: number
+  verified: boolean
+}
+
+export interface CoordinationMessage {
+  id: string
+  link_id: string
+  sender_profile_id: string
+  message: string
+  created_at: string
+}
+
 
 export interface CaseAction {
   id: string

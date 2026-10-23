@@ -124,8 +124,15 @@ export function AppShell() {
             ) : null}
           </div>
 
-          {/* Right Action: Register Case Button */}
+          {/* Right Action: Register Case & Public Portal */}
           <div className="flex items-center gap-2">
+            <Link
+              to="/"
+              className="hidden md:flex items-center gap-1 text-[11px] font-bold text-white/90 hover:text-white bg-[#002244] px-2.5 py-1.5 rounded-[3px] border border-white/20 transition"
+              title="Switch to Public Complaint Portal"
+            >
+              <span>Public Portal</span>
+            </Link>
             <Link
               to="/complaints/new"
               className="bg-[#ff9933] hover:bg-[#e68a00] text-[#002244] font-bold text-[12px] px-3 py-1.5 rounded-[3px] transition flex items-center gap-1.5 shadow-xs uppercase tracking-wide cursor-pointer"
@@ -135,6 +142,7 @@ export function AppShell() {
             </Link>
           </div>
         </div>
+
 
         {/* Mobile Navigation Drawer */}
         {mobileOpen ? (
@@ -288,12 +296,12 @@ export function AppShell() {
             </div>
             <div>
               <p className="font-bold text-white text-[13px] mb-2 uppercase tracking-wide">
-                Project Information
+                Administrative Mandate
               </p>
               <p className="text-[12px] text-white/70 leading-relaxed">
-                Smart India Hackathon (SIH) 2026<br />
-                Problem Statement: AICTE Regulation Bureau<br />
-                Integrated Complaint Tracking Platform
+                AICTE Regulation Bureau<br />
+                Integrated Complaint Monitoring & Status Dashboard<br />
+                Ministry of Education, Government of India
               </p>
             </div>
           </div>
@@ -307,3 +315,4 @@ export function AppShell() {
     </div>
   )
 }
+

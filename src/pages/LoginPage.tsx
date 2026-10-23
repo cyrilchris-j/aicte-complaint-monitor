@@ -112,7 +112,7 @@ export function LoginPage() {
                 <AlertCircle size={18} className="shrink-0 mt-0.5 text-[#d97706]" />
                 <p>
                   <strong>Notice:</strong> This is a secure Government of India intranet administrative
-                  dashboard for Smart India Hackathon 2026. Unauthorized access attempts are monitored and recorded.
+                  dashboard for AICTE Bureau Officials and Case Officers. Unauthorized access attempts are monitored and logged.
                 </p>
               </div>
             </div>
@@ -121,17 +121,17 @@ export function LoginPage() {
             <div className="bg-white rounded-[3px] border border-[#cbd5e1] p-5 shadow-sm">
               <div className="flex items-center justify-between border-b border-[#e2e8f0] pb-2 mb-3">
                 <span className="text-[13px] font-bold text-[#003366] uppercase tracking-wide">
-                  Quick Access: Official AICTE System Roles
+                  Official AICTE System Roles (Directory)
                 </span>
                 <span className="text-[11px] font-semibold text-[#64748b]">
                   Default Password: <code className="bg-[#f1f5f9] px-1.5 py-0.5 rounded text-[#003366]">{demoPassword}</code>
                 </span>
               </div>
               <p className="text-[12px] text-[#64748b] mb-3">
-                Click any role to test role-specific workflows (permissions, assigned queues, cross-bureau transfers):
+                Select an official profile to authenticate into role-specific workflows (Admin Workspace, Bureau Head, Case Officer):
               </p>
               <div className="grid sm:grid-cols-2 gap-2 text-[12px]">
-                {accounts.slice(0, 6).map((a) => {
+                {accounts.slice(0, 8).map((a) => {
                   const p = profiles.find((x) => x.id === a.profileId)
                   const isCurrent = email === a.email
                   return (
@@ -161,6 +161,13 @@ export function LoginPage() {
                   )
                 })}
               </div>
+
+              <div className="mt-4 pt-3 border-t border-[#e2e8f0] flex justify-between items-center text-[12px]">
+                <Link to="/" className="text-[#003366] font-bold hover:underline flex items-center gap-1">
+                  ← Citizen Public Complaint Portal
+                </Link>
+                <span className="text-[#64748b]">256-bit Encrypted Portal</span>
+              </div>
             </div>
           </div>
 
@@ -170,10 +177,11 @@ export function LoginPage() {
               <div className="bg-[#003366] px-6 py-4 text-white flex items-center justify-between">
                 <div>
                   <h3 className="text-[16px] font-bold tracking-tight">अधिकारी लॉगिन / Staff Sign In</h3>
-                  <p className="text-[12px] text-white/80">AICTE Internal Authentication System</p>
+                  <p className="text-[12px] text-white/80">Official Administrative Access</p>
                 </div>
                 <Lock size={20} className="text-[#ff9933]" />
               </div>
+
 
               <form
                 className="p-6 space-y-4"
@@ -295,12 +303,12 @@ export function LoginPage() {
             </div>
             <div>
               <p className="font-bold text-white text-[13px] mb-2 uppercase tracking-wide">
-                Project Information
+                Administrative Mandate
               </p>
               <p className="text-[12px] text-white/70 leading-relaxed">
-                Smart India Hackathon (SIH) 2026<br />
-                Problem Statement: AICTE Regulation Bureau<br />
-                Integrated Complaint Tracking Platform
+                AICTE Regulation Bureau<br />
+                Integrated Complaint Monitoring & Status Dashboard<br />
+                Ministry of Education, Government of India
               </p>
             </div>
           </div>
@@ -314,3 +322,4 @@ export function LoginPage() {
     </div>
   )
 }
+

@@ -24,16 +24,21 @@ import type {
   CaseAction,
   CaseDocument,
   CaseStatus,
+  Category,
+  ComplainantType,
   ComplaintCase,
+  ComplaintEmbedding,
   DashboardStats,
+  Priority,
   Profile,
   Role,
   VerificationStatus,
 } from '../types'
+
 import { buildSeedState } from './seed'
 import { supabase, supabaseEnabled } from '../lib/supabase'
 
-const KEY = 'aicte-casesync-clean-v1'
+const KEY = 'aicte-casesync-clean-v2'
 
 function fireAndForget(promiseLike: PromiseLike<unknown> | Promise<unknown>) {
   Promise.resolve(promiseLike).catch((err: unknown) => {
@@ -44,6 +49,7 @@ function fireAndForget(promiseLike: PromiseLike<unknown> | Promise<unknown>) {
 // Clean up old mock localStorage data if present
 try {
   localStorage.removeItem('aicte-casesync-demo-v1')
+  localStorage.removeItem('aicte-casesync-clean-v1')
 } catch {
   /* ignore */
 }
@@ -56,13 +62,14 @@ function load(): AppState {
     const raw = localStorage.getItem(KEY)
     if (raw) {
       const parsed = JSON.parse(raw) as AppState
-      if (parsed.profiles?.length) return parsed
+      if (parsed.profiles?.length && parsed.institutions?.length && parsed.cases?.length) return parsed
     }
   } catch {
     /* ignore */
   }
   return buildSeedState()
 }
+
 
 function persist() {
   try {
@@ -1066,3 +1073,282 @@ export function roleCan(role: Role, action: 'writeCase' | 'assign' | 'transfer' 
 export function updateVerificationStatus(id: string, status: VerificationStatus, actor: Profile) {
   updateVerification(id, { verification_status: status }, actor)
 }
+
+// ----------------------------------------------------
+// Public Complaint Portal & OTP Verification Subsystem
+// ----------------------------------------------------
+
+interface OTPStoreItem {
+  identifier: string
+  code: string
+  expiresAt: number
+  attempts: number
+  verified: boolean
+  lastSentAt: number
+}
+
+const otpStore = new Map<string, OTPStoreItem>()
+
+export function requestOTP(identifier: string, type: 'email' | 'mobile') {
+  const clean = identifier.trim().toLowerCase()
+  const existing = otpStore.get(clean)
+  const now = Date.now()
+
+  // Cooldown check: 30 seconds
+  if (existing && now - existing.lastSentAt < 30000) {
+    const remaining = Math.ceil((30000 - (now - existing.lastSentAt)) / 1000)
+    return { ok: false, error: `Please wait ${remaining} seconds before requesting a new OTP.` }
+  }
+
+  // Generate 6-digit OTP
+  const code = String(Math.floor(100000 + Math.random() * 900000))
+  // Exactly 5 minutes validity
+  const expiresAt = now + 5 * 60 * 1000
+
+  otpStore.set(clean, {
+    identifier: clean,
+    code,
+    expiresAt,
+    attempts: 0,
+    verified: false,
+    lastSentAt: now,
+  })
+
+  return {
+    ok: true,
+    code,
+    expiresAt,
+    expiresInSeconds: 300,
+    demoNotice: `Demo Gateway: 6-digit ${type.toUpperCase()} OTP for ${identifier} is ${code}`,
+  }
+}
+
+export function verifyOTP(identifier: string, enteredCode: string) {
+  const clean = identifier.trim().toLowerCase()
+  const record = otpStore.get(clean)
+  const now = Date.now()
+
+  if (!record) {
+    return { ok: false, error: 'No OTP generated for this contact. Please request an OTP first.' }
+  }
+
+  if (now > record.expiresAt) {
+    return { ok: false, error: 'OTP has expired. Verification codes are valid for exactly 5 minutes. Please request a new OTP.' }
+  }
+
+  if (record.attempts >= 5) {
+    return { ok: false, error: 'Maximum verification attempts (5) exceeded. Please generate a new OTP.' }
+  }
+
+  if (record.code !== enteredCode.trim()) {
+    record.attempts += 1
+    const rem = 5 - record.attempts
+    return { ok: false, error: `Incorrect 6-digit OTP. ${rem} attempt${rem === 1 ? '' : 's'} remaining.` }
+  }
+
+  record.verified = true
+  return { ok: true }
+}
+
+export function isContactVerified(identifier: string) {
+  const clean = identifier.trim().toLowerCase()
+  return otpStore.get(clean)?.verified ?? false
+}
+
+export function resetContactVerification(identifier: string) {
+  const clean = identifier.trim().toLowerCase()
+  otpStore.delete(clean)
+}
+
+export function submitPublicComplaint(input: {
+  complainant_name: string
+  complainant_type: ComplainantType
+  complainant_email: string
+  complainant_mobile: string
+  institution_id: string
+  complaint_category: Category
+  sub_category?: string
+  incident_date?: string
+  subject: string
+  description: string
+  priority: Priority
+  documents?: { name: string; type: string; dataUrl?: string }[]
+}) {
+  const inst = state.institutions.find((i) => i.id === input.institution_id)
+  if (!inst) throw new Error('Selected institution does not exist.')
+
+  // Bureau routing logic
+  let targetBureau = state.bureaus.find((b) => b.code === 'RB') || state.bureaus[0]
+  if (['Ragging / Harassment', 'Student Welfare', 'Hostel', 'Child Safety', 'Cyber / Online Harassment', 'Women Safety'].includes(input.complaint_category)) {
+    const pgrc = state.bureaus.find((b) => b.code === 'PGRC')
+    if (pgrc) targetBureau = pgrc
+  } else if (input.complaint_category === 'Accreditation / Approval') {
+    const ab = state.bureaus.find((b) => b.code === 'AB') || state.bureaus.find((b) => b.code === 'RB')
+    if (ab) targetBureau = ab
+  } else if (input.complaint_category === 'Infrastructure' && inst.region) {
+    const ro = state.bureaus.find((b) => b.code === 'RO')
+    if (ro) targetBureau = ro
+  }
+
+  const seq = 1000 + state.cases.length + 1
+  const caseId = `${targetBureau.code}-2026-${seq}`
+  const now = nowIso()
+
+  const c: ComplaintCase = {
+    id: uid('case'),
+    case_id: caseId,
+    institution_id: inst.id,
+    bureau_id: targetBureau.id,
+    assigned_officer_id: null,
+    complainant_type: input.complainant_type,
+    complainant_name: input.complainant_name,
+    complainant_reference: `REF-2026-${inst.state.slice(0, 2).toUpperCase()}-${seq}`,
+    complainant_email: input.complainant_email,
+    complainant_mobile: input.complainant_mobile,
+    complaint_category: input.complaint_category,
+    sub_category: input.sub_category,
+    incident_date: input.incident_date,
+    subject: input.subject,
+    description: input.description,
+    priority: input.priority,
+    status: 'NEW',
+    received_date: now,
+    last_action_date: now,
+    expected_disposal_date: expectedDisposal(input.complaint_category, input.priority, now),
+    actual_disposal_date: null,
+    source: 'AICTE Public Complaint Portal',
+    verification_status: 'VERIFIED',
+    overlap_status: 'NONE',
+    pending_transfer_bureau_id: null,
+    mobile_verified: true,
+    email_verified: true,
+    documents_received: (input.documents?.length ?? 0) > 0,
+    institution_response_received: false,
+    created_at: now,
+    updated_at: now,
+  }
+
+  const embedding: ComplaintEmbedding = {
+    id: uid('emb'),
+    case_id: c.id,
+    embedding: embedText(complaintText(c)),
+    created_at: now,
+  }
+
+  mutate((s) => {
+    s.cases.unshift(c)
+    s.embeddings.push(embedding)
+
+    s.actions.unshift({
+      id: uid('act'),
+      case_id: c.id,
+      action_type: 'RECEIVED',
+      action_description: `Complaint submitted via Public Portal and routed to ${targetBureau.name} (${targetBureau.code}).`,
+      performed_by: 'system',
+      from_bureau_id: null,
+      to_bureau_id: targetBureau.id,
+      created_at: now,
+    })
+
+    if (input.documents?.length) {
+      for (const d of input.documents) {
+        s.documents.unshift({
+          id: uid('doc'),
+          case_id: c.id,
+          document_name: d.name,
+          document_type: d.type || 'Supporting Evidence',
+          storage_path: `public_uploads/${c.id}/${d.name}`,
+          uploaded_by: 'Complainant',
+          verification_status: 'UNDER_REVIEW',
+          uploaded_at: now,
+          data_url: d.dataUrl,
+        })
+      }
+    }
+
+    const newLinks = detectOverlaps({
+      cases: s.cases,
+      institutions: s.institutions,
+      embeddings: s.embeddings,
+      actorId: 'system',
+      thresholds: s.settings.overlapThresholds,
+      existing: s.links,
+    }).filter((l) => l.source_case_id === c.id || l.target_case_id === c.id)
+
+    s.links.push(...newLinks)
+    if (newLinks.length) {
+      const best = newLinks.sort((a, b) => b.similarity_score - a.similarity_score)[0]
+      c.overlap_status = overlapLabel(best.similarity_score, s.settings.overlapThresholds)
+    }
+
+    const bureauHead = s.profiles.find((p) => p.role === 'BUREAU_HEAD' && p.bureau_id === targetBureau.id)
+    if (bureauHead) {
+      notify(bureauHead.id, 'New Complaint Received', `Case ${c.case_id} registered against ${inst.institution_name}.`, c.id, 'NEW_CASE', c.priority)
+    }
+  })
+
+  return c
+}
+
+export function getPublicTracking(caseIdOrRef: string, contactIdentifier: string) {
+  const query = caseIdOrRef.trim().toUpperCase()
+  const contact = contactIdentifier.trim().toLowerCase()
+  const cleanContactDigits = contact.replace(/\D/g, '')
+
+  const c = state.cases.find((x) => x.case_id.toUpperCase() === query || x.complainant_reference.toUpperCase() === query)
+  if (!c) {
+    return { ok: false as const, error: 'No complaint found matching this Complaint ID or Reference number.' }
+  }
+
+  const emailMatch = c.complainant_email && c.complainant_email.toLowerCase() === contact
+  const phoneMatch = c.complainant_mobile && c.complainant_mobile.replace(/\D/g, '').endsWith(cleanContactDigits) && cleanContactDigits.length >= 8
+
+  // If complainant contact is recorded, verify it
+  if (c.complainant_email || c.complainant_mobile) {
+    if (!emailMatch && !phoneMatch && contact !== '') {
+      return { ok: false as const, error: 'The provided Email / Mobile does not match the complainant records for this Case ID.' }
+    }
+  }
+
+  const inst = state.institutions.find((i) => i.id === c.institution_id)
+  const bureau = state.bureaus.find((b) => b.id === c.bureau_id)
+
+  let currentStage = 'Intake & Verification'
+  if (c.status === 'UNDER_REVIEW') currentStage = 'Bureau Review'
+  else if (c.status === 'UNDER_PROCESS') currentStage = 'Active Inquiry & Document Review'
+  else if (c.status === 'PENDING_INFORMATION') currentStage = 'Awaiting Institution Response'
+  else if (c.status === 'ESCALATED') currentStage = 'Senior Regulatory Review'
+  else if (c.status === 'RESOLVED') currentStage = 'Redressal Formally Issued'
+  else if (c.status === 'DISPOSED' || c.status === 'CLOSED') currentStage = 'Disposed & Closed'
+
+  const timeline = [
+    { title: 'Complaint Received', description: 'Complaint successfully registered in AICTE CaseSync system.', completed: true, date: c.received_date },
+    { title: 'Contact Verification', description: 'Dual Email and Mobile verification authenticated.', completed: c.mobile_verified, date: c.received_date },
+    { title: 'Bureau Jurisdiction', description: `Assigned to ${bureau?.name || 'AICTE Bureau'}.`, completed: true, date: c.received_date },
+    { title: 'Official Review & Inquiry', description: 'Authorized bureau officials examining institutional records.', completed: c.status !== 'NEW' && c.status !== 'PENDING_VERIFICATION', date: c.last_action_date },
+    { title: 'Institution Response / Clarification', description: 'Institution explanation on record.', completed: c.institution_response_received, date: c.institution_response_received ? c.last_action_date : null },
+    { title: 'Final Redressal / Disposal', description: 'Inquiry concluded with formal order.', completed: c.status === 'RESOLVED' || c.status === 'DISPOSED' || c.status === 'CLOSED', date: c.actual_disposal_date },
+  ]
+
+  return {
+    ok: true as const,
+    case: {
+      case_id: c.case_id,
+      complainant_reference: c.complainant_reference,
+      institution_name: inst?.institution_name ?? 'Technical Institution',
+      aicte_permanent_id: inst?.aicte_permanent_id ?? '—',
+      category: c.complaint_category,
+      sub_category: c.sub_category,
+      subject: c.subject,
+      status: c.status,
+      current_stage: currentStage,
+      target_bureau: bureau?.name ?? 'AICTE Bureau',
+      submitted_date: c.received_date,
+      last_updated: c.last_action_date,
+      expected_disposal_date: c.expected_disposal_date,
+      next_action: NEXT_ACTIONS[c.status] || 'Under Bureau Consideration',
+      timeline,
+    },
+  }
+}
+

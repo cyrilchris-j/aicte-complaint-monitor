@@ -1,5 +1,6 @@
-import { DEFAULT_THRESHOLDS, OVERLAP_WEIGHTS } from './constants'
+import { DEFAULT_THRESHOLDS, OVERLAP_WEIGHTS, CATEGORY_KEYWORDS } from './constants'
 import { daysBetween, normalizeName } from './utils'
+
 import type {
   CaseLink,
   ComplaintCase,
@@ -256,19 +257,7 @@ export function detectSuspiciousPatterns(cases: ComplaintCase[], institutions: I
 export function suggestCategory(text: string): { category: Category; confidence: number } {
   const lower = text.toLowerCase()
   let best: { category: Category; confidence: number } = { category: 'Other', confidence: 0.35 }
-  const entries = Object.entries(
-    {
-      Fees: ['fee', 'fees', 'tuition', 'capitation', 'charge', 'payment'],
-      Admission: ['admission', 'seat', 'counselling', 'counseling', 'allotment'],
-      Faculty: ['faculty', 'teacher', 'professor', 'staff shortage'],
-      Infrastructure: ['lab', 'hostel', 'library', 'infrastructure', 'building', 'facility'],
-      'Course/Programme': ['course', 'programme', 'program', 'curriculum', 'branch'],
-      'Approval/Compliance': ['approval', 'affiliation', 'compliance', 'inspection'],
-      Examination: ['exam', 'examination', 'result', 'revaluation', 'marks'],
-      'Scholarship/Student Benefits': ['scholarship', 'stipend', 'fellowship'],
-      'Institutional Administration': ['administration', 'management', 'registrar', 'principal'],
-    } as Record<Category, string[]>,
-  ) as [Category, string[]][]
+  const entries = Object.entries(CATEGORY_KEYWORDS) as [Category, string[]][]
   for (const [category, keys] of entries) {
     const hits = keys.filter((k) => lower.includes(k)).length
     if (hits > 0) {
@@ -278,6 +267,7 @@ export function suggestCategory(text: string): { category: Category; confidence:
   }
   return best
 }
+
 
 export function officerSummary(c: ComplaintCase, relatedCount: number) {
   const evidence = c.documents_received ? 'Supporting documents are on file.' : 'Supporting documents are not yet complete.'

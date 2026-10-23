@@ -25,11 +25,12 @@ export function NewComplaintPage() {
   const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
   const [institutionId, setInstitutionId] = useState(snapshot.institutions[0]?.id ?? '')
   const [bureauId, setBureauId] = useState(profile?.bureau_id ?? snapshot.bureaus[1]?.id ?? snapshot.bureaus[0]?.id ?? '')
-  const [category, setCategory] = useState<Category>('Fees')
+  const [category, setCategory] = useState<Category>('Fees / Financial Issues')
   const [subject, setSubject] = useState('')
   const [description, setDescription] = useState('')
   const [priority, setPriority] = useState<Priority>('HIGH')
   const [complainantType, setComplainantType] = useState<ComplainantType>('Student')
+
   const [name, setName] = useState('')
   const [error, setError] = useState<string | null>(null)
 

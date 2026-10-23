@@ -4,7 +4,9 @@ import { RequireAuth } from './components/RequireAuth'
 import { AppShell } from './components/layout/AppShell'
 import { LoginPage } from './pages/LoginPage'
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
+import { PublicPortalPage } from './pages/PublicPortalPage'
 import { DashboardPage } from './pages/DashboardPage'
+
 import { InstitutionsPage } from './pages/InstitutionsPage'
 import { Institution360Page } from './pages/Institution360Page'
 import { ComplaintsPage } from './pages/ComplaintsPage'
@@ -97,10 +99,13 @@ export default function App() {
               }
             />
           </Route>
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/" element={<PublicPortalPage />} />
+          <Route path="/public" element={<PublicPortalPage />} />
+          <Route path="/track" element={<PublicPortalPage />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>
   )
 }
+
