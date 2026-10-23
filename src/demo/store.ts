@@ -144,14 +144,14 @@ export async function syncFromSupabase() {
     mutate((s) => {
       if (bRes.data?.length) s.bureaus = bRes.data
       if (pRes.data?.length) s.profiles = pRes.data
-      if (iRes.data) s.institutions = iRes.data
-      if (cRes.data) s.cases = cRes.data
-      if (aRes.data) s.actions = aRes.data
-      if (dRes.data) s.documents = dRes.data
-      if (lRes.data) s.links = lRes.data
-      if (nRes.data) s.notifications = nRes.data
+      if (iRes.data?.length) s.institutions = iRes.data
+      if (cRes.data?.length) s.cases = cRes.data
+      if (aRes.data?.length) s.actions = aRes.data
+      if (dRes.data?.length) s.documents = dRes.data
+      if (lRes.data?.length) s.links = lRes.data
+      if (nRes.data?.length) s.notifications = nRes.data
       if (sRes.data?.length) s.slaRules = sRes.data
-      if (audRes.data) s.auditLogs = audRes.data
+      if (audRes.data?.length) s.auditLogs = audRes.data
     })
   } catch (err) {
     console.error('Failed to sync from Supabase:', err)
@@ -1114,12 +1114,31 @@ export function requestOTP(identifier: string, type: 'email' | 'mobile') {
     lastSentAt: now,
   })
 
+  const provider = type === 'email' 
+    ? (import.meta.env.VITE_EMAIL_OTP_PROVIDER || 'simulation')
+    : (import.meta.env.VITE_SMS_OTP_PROVIDER || 'simulation')
+
+  // Supabase persistence if connected
+  if (supabaseEnabled && supabase) {
+    fireAndForget(
+      supabase.from('otp_verifications').insert({
+        identifier: clean,
+        otp_hash: btoa(code + clean).slice(0, 32),
+        channel: type,
+        expires_at: new Date(expiresAt).toISOString(),
+        attempts: 0,
+        verified: false,
+      })
+    )
+  }
+
   return {
     ok: true,
     code,
     expiresAt,
     expiresInSeconds: 300,
-    demoNotice: `Demo Gateway: 6-digit ${type.toUpperCase()} OTP for ${identifier} is ${code}`,
+    provider,
+    demoNotice: `Demo Gateway [${provider.toUpperCase()}]: 6-digit ${type.toUpperCase()} OTP for ${identifier} is ${code}`,
   }
 }
 
@@ -1143,10 +1162,20 @@ export function verifyOTP(identifier: string, enteredCode: string) {
   if (record.code !== enteredCode.trim()) {
     record.attempts += 1
     const rem = 5 - record.attempts
+    if (supabaseEnabled && supabase) {
+      fireAndForget(
+        supabase.from('otp_verifications').update({ attempts: record.attempts, updated_at: new Date().toISOString() }).eq('identifier', clean)
+      )
+    }
     return { ok: false, error: `Incorrect 6-digit OTP. ${rem} attempt${rem === 1 ? '' : 's'} remaining.` }
   }
 
   record.verified = true
+  if (supabaseEnabled && supabase) {
+    fireAndForget(
+      supabase.from('otp_verifications').update({ verified: true, updated_at: new Date().toISOString() }).eq('identifier', clean)
+    )
+  }
   return { ok: true }
 }
 
@@ -1286,6 +1315,42 @@ export function submitPublicComplaint(input: {
       notify(bureauHead.id, 'New Complaint Received', `Case ${c.case_id} registered against ${inst.institution_name}.`, c.id, 'NEW_CASE', c.priority)
     }
   })
+
+  if (supabaseEnabled && supabase) {
+    fireAndForget(
+      supabase.from('complaint_cases').insert({
+        id: c.id,
+        case_id: c.case_id,
+        institution_id: c.institution_id,
+        bureau_id: c.bureau_id,
+        assigned_officer_id: null,
+        complainant_name: c.complainant_name,
+        complainant_type: c.complainant_type,
+        complainant_reference: c.complainant_reference,
+        complainant_email: c.complainant_email,
+        complainant_mobile: c.complainant_mobile,
+        complaint_category: c.complaint_category,
+        sub_category: c.sub_category,
+        incident_date: c.incident_date,
+        subject: c.subject,
+        description: c.description,
+        priority: c.priority,
+        status: c.status,
+        received_date: c.received_date,
+        last_action_date: c.last_action_date,
+        expected_disposal_date: c.expected_disposal_date,
+        source: c.source,
+        verification_status: c.verification_status,
+        overlap_status: c.overlap_status,
+        mobile_verified: true,
+        email_verified: true,
+        documents_received: c.documents_received,
+        institution_response_received: false,
+        created_at: c.created_at,
+        updated_at: c.updated_at,
+      })
+    )
+  }
 
   return c
 }
