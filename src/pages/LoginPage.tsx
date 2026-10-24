@@ -5,7 +5,7 @@ import { PRODUCT_NAME, PRODUCT_SUBTITLE, PROTOTYPE_LABEL, ROLE_LABEL } from '../
 import { getSnapshot } from '../demo/store'
 import { inputClass } from '../components/ui'
 import { GovernmentTopBar, OfficialAicteHeader } from '../components/AicteBrand'
-import { ShieldCheck, Lock, User, KeyRound, Building, CheckCircle2, AlertCircle } from 'lucide-react'
+import { ShieldCheck, Lock, User, KeyRound, Building, CheckCircle2, AlertCircle, Eye, EyeOff } from 'lucide-react'
 
 export function LoginPage() {
   const { profile, login, demoPassword } = useAuth()
@@ -14,6 +14,7 @@ export function LoginPage() {
   const from = (location.state as { from?: string } | null)?.from ?? '/dashboard'
   const [email, setEmail] = useState('admin@aicte.gov.in')
   const [password, setPassword] = useState(demoPassword)
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   if (profile) return <Navigate to={from} replace />
@@ -205,10 +206,10 @@ export function LoginPage() {
                     <User size={16} className="absolute left-3 top-2.5 text-[#64748b]" />
                     <input
                       className={`${inputClass} pl-9 font-sans`}
-                      type="email"
+                      type="text"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      placeholder="officer@aicte.gov.in"
+                      placeholder="e.g. director@aicte.gov.in or admin"
                       required
                       autoComplete="username"
                     />
@@ -220,20 +221,31 @@ export function LoginPage() {
                     <label className="block text-[13px] font-bold text-[#003366]">
                       Password / पासवर्ड
                     </label>
-                    <Link to="/forgot-password" className="text-[12px] font-semibold text-[#003366] hover:underline">
-                      Forgot Password?
-                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => setPassword(demoPassword)}
+                      className="text-[11px] font-bold text-[#003366] hover:underline cursor-pointer"
+                    >
+                      Fill Default ({demoPassword})
+                    </button>
                   </div>
                   <div className="relative">
                     <KeyRound size={16} className="absolute left-3 top-2.5 text-[#64748b]" />
                     <input
-                      className={`${inputClass} pl-9 font-sans`}
-                      type="password"
+                      className={`${inputClass} pl-9 pr-10 font-sans`}
+                      type={showPassword ? 'text' : 'password'}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
                       autoComplete="current-password"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-2.5 text-[#64748b] hover:text-[#003366] cursor-pointer"
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
                   </div>
                 </div>
 

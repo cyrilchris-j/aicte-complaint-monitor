@@ -251,16 +251,30 @@ function addAction(caseId: string, type: string, description: string, by: string
 
 export async function login(email: string, password: string) {
   const cleanEmail = email.trim().toLowerCase()
+  const enteredPassword = password.trim()
+
+  // 1. Check official administrative accounts (supports both full email and username e.g. director / director@aicte.gov.in)
+  const account = state.accounts.find(
+    (a) => a.email.toLowerCase() === cleanEmail || a.email.toLowerCase().split('@')[0] === cleanEmail
+  )
+  if (account && account.password === enteredPassword) {
+    const profile = state.profiles.find((p) => p.id === account.profileId)
+    if (profile?.active) {
+      state.sessionProfileId = profile.id
+      audit(profile.id, 'Login', 'session', profile.id, null, email)
+      emit()
+      return { ok: true as const, profile }
+    }
+  }
+
+  // 2. Also authenticate against Supabase Auth if connected
   if (supabaseEnabled && supabase) {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email: cleanEmail,
-        password,
+        password: enteredPassword,
       })
-      if (error) {
-        return { ok: false as const, error: error.message }
-      }
-      if (data.user) {
+      if (!error && data?.user) {
         await syncFromSupabase()
         const p = state.profiles.find((x) => x.auth_user_id === data.user.id || x.email.toLowerCase() === cleanEmail)
         if (p) {
@@ -270,22 +284,12 @@ export async function login(email: string, password: string) {
           return { ok: true as const, profile: p }
         }
       }
-    } catch (e: any) {
-      return { ok: false as const, error: e.message || 'Unable to sign in via Supabase.' }
+    } catch {
+      // Fall through
     }
   }
 
-  // Fallback demo account authentication
-  const account = state.accounts.find((a) => a.email.toLowerCase() === cleanEmail)
-  if (!account || account.password !== password) {
-    return { ok: false as const, error: 'Invalid email or password.' }
-  }
-  const profile = state.profiles.find((p) => p.id === account.profileId)
-  if (!profile?.active) return { ok: false as const, error: 'Account is inactive.' }
-  state.sessionProfileId = profile.id
-  audit(profile.id, 'Login', 'session', profile.id, null, email)
-  emit()
-  return { ok: true as const, profile }
+  return { ok: false as const, error: 'Invalid login credentials. Please use official AICTE credentials (e.g. director@aicte.gov.in / AICTE@Admin2026).' }
 }
 
 export async function logout() {
