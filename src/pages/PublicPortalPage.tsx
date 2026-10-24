@@ -37,6 +37,8 @@ export function PublicPortalPage() {
   // Step 2: OTP Verification
   const [emailOtp, setEmailOtp] = useState('')
   const [mobileOtp, setMobileOtp] = useState('')
+  const [dispEmailOtp, setDispEmailOtp] = useState('')
+  const [dispMobileOtp, setDispMobileOtp] = useState('')
   const [emailVerified, setEmailVerified] = useState(false)
   const [mobileVerified, setMobileVerified] = useState(false)
   const [otpError, setOtpError] = useState<string | null>(null)
@@ -137,6 +139,8 @@ export function PublicPortalPage() {
     setTimer(300)
     setCooldown(30)
     setOtpError(null)
+    setDispEmailOtp(eRes.code || '')
+    setDispMobileOtp(mRes.code || '')
     setSimulatedNotice(`[Simulated Gateway] Email OTP: ${eRes.code} | Mobile SMS OTP: ${mRes.code}`)
     setStep(2)
   }
@@ -145,6 +149,23 @@ export function PublicPortalPage() {
   const handleResend = () => {
     if (cooldown > 0) return
     handleSendOTPs()
+  }
+
+  // Auto Fill & Verify both OTPs for instant demo evaluation
+  const handleAutoFillAndVerify = () => {
+    if (dispEmailOtp && dispMobileOtp) {
+      setEmailOtp(dispEmailOtp)
+      setMobileOtp(dispMobileOtp)
+      const eRes = verifyOTP(email, dispEmailOtp)
+      const mRes = verifyOTP(mobile, dispMobileOtp)
+      if (eRes.ok && mRes.ok) {
+        setEmailVerified(true)
+        setMobileVerified(true)
+        setOtpError(null)
+      } else {
+        setOtpError(eRes.error || mRes.error || 'Verification failed.')
+      }
+    }
   }
 
   // Verify Email OTP
@@ -509,6 +530,34 @@ export function PublicPortalPage() {
                   </div>
                 </div>
 
+                {/* Demo Evaluation Helper Banner with Auto-Fill */}
+                <div className="bg-[#eff6ff] border border-[#bfdbfe] p-3.5 rounded-[3px] flex flex-wrap items-center justify-between gap-3">
+                  <div className="space-y-1">
+                    <p className="font-bold text-[#1e40af] text-[13px] flex items-center gap-1.5">
+                      <ShieldCheck size={16} /> Prototype / Demo Verification Gateway Active
+                    </p>
+                    <p className="text-[12px] text-[#475569]">
+                      Since telecom cellular SMS requires a paid DLT TRAI carrier gateway, 6-digit test codes are generated on-screen and securely tracked:
+                    </p>
+                    <div className="flex flex-wrap items-center gap-3 pt-1 font-mono text-[12px]">
+                      <span className="bg-white px-2.5 py-1 border border-[#bfdbfe] rounded text-[#1e40af]">
+                        Email OTP: <strong className="font-bold text-[14px] text-[#003366]">{dispEmailOtp || '123456'}</strong>
+                      </span>
+                      <span className="bg-white px-2.5 py-1 border border-[#bbf7d0] rounded text-[#166534]">
+                        Mobile SMS OTP: <strong className="font-bold text-[14px] text-[#15803d]">{dispMobileOtp || '654321'}</strong>
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAutoFillAndVerify}
+                    className="bg-[#003366] hover:bg-[#002244] text-white font-bold text-[12px] px-4 py-2 rounded-[3px] transition cursor-pointer shadow-xs flex items-center gap-1.5"
+                  >
+                    <Check size={14} />
+                    <span>Auto-Fill & Verify Both</span>
+                  </button>
+                </div>
+
                 <div className="grid md:grid-cols-2 gap-6">
                   {/* Email OTP Verification Box */}
                   <div className="border border-[#cbd5e1] rounded-[3px] p-4 bg-[#f8fafc] space-y-3">
@@ -525,6 +574,18 @@ export function PublicPortalPage() {
                       )}
                     </div>
                     <p className="text-[11px] text-[#64748b]">Sent to: <strong>{email}</strong></p>
+                    {dispEmailOtp && !emailVerified && (
+                      <div className="bg-[#f0f9ff] border border-[#bae6fd] p-2 rounded text-[11px] text-[#0369a1] flex items-center justify-between">
+                        <span>Generated OTP: <strong className="font-mono text-[13px]">{dispEmailOtp}</strong></span>
+                        <button
+                          type="button"
+                          onClick={() => setEmailOtp(dispEmailOtp)}
+                          className="text-[#003366] font-bold underline cursor-pointer"
+                        >
+                          Click to insert
+                        </button>
+                      </div>
+                    )}
                     <div className="flex gap-2">
                       <input
                         type="text"
@@ -561,6 +622,18 @@ export function PublicPortalPage() {
                       )}
                     </div>
                     <p className="text-[11px] text-[#64748b]">Sent to: <strong>+91-{mobile}</strong></p>
+                    {dispMobileOtp && !mobileVerified && (
+                      <div className="bg-[#f0fdf4] border border-[#bbf7d0] p-2 rounded text-[11px] text-[#15803d] flex items-center justify-between">
+                        <span>Generated OTP: <strong className="font-mono text-[13px]">{dispMobileOtp}</strong></span>
+                        <button
+                          type="button"
+                          onClick={() => setMobileOtp(dispMobileOtp)}
+                          className="text-[#15803d] font-bold underline cursor-pointer"
+                        >
+                          Click to insert
+                        </button>
+                      </div>
+                    )}
                     <div className="flex gap-2">
                       <input
                         type="text"
