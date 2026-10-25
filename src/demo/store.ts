@@ -307,12 +307,37 @@ export function currentProfile() {
 
 export function canAccessCase(profile: Profile, c: ComplaintCase) {
   if (profile.role === 'SUPER_ADMIN' || profile.role === 'SENIOR_MANAGEMENT') return true
+
+  // 1. Direct assignment: if assigned to this official, they MUST always see it
+  if (c.assigned_officer_id && c.assigned_officer_id === profile.id) return true
+
+  // 2. Pending bureau transfer: if a transfer is requested to this official's bureau, they must see it
+  if (c.pending_transfer_bureau_id && profile.bureau_id && c.pending_transfer_bureau_id === profile.bureau_id) return true
+
+  // 3. Bureau Head access to their bureau
   if (profile.role === 'BUREAU_HEAD') return c.bureau_id === profile.bureau_id
-  if (profile.role === 'CASE_OFFICER') return c.assigned_officer_id === profile.id || c.bureau_id === profile.bureau_id
+
+  // 4. Case Officer access to their bureau
+  if (profile.role === 'CASE_OFFICER') return c.bureau_id === profile.bureau_id
+
+  // 5. Regional Officer access to institutions in their region or cases explicitly assigned
   if (profile.role === 'REGIONAL_OFFICER') {
     const inst = state.institutions.find((i) => i.id === c.institution_id)
     return inst?.region === profile.region
   }
+
+  // 6. Bilateral coordination: if linked via active coordination request to a case in this official's bureau
+  if (profile.bureau_id) {
+    const coordinated = state.links.some(
+      (l) =>
+        l.coordination_requested &&
+        !l.dismissed &&
+        ((l.source_case_id === c.id && state.cases.some((other) => other.id === l.target_case_id && (other.bureau_id === profile.bureau_id || other.assigned_officer_id === profile.id))) ||
+          (l.target_case_id === c.id && state.cases.some((other) => other.id === l.source_case_id && (other.bureau_id === profile.bureau_id || other.assigned_officer_id === profile.id))))
+    )
+    if (coordinated) return true
+  }
+
   return false
 }
 
@@ -332,12 +357,14 @@ export function dashboardStats(profile: Profile): DashboardStats {
   const highPriorityOverlaps = activeLinks.filter((l) => l.similarity_score >= 85).length
   const crossBureau = activeLinks.filter((l) => l.relationship_type === 'CROSS_BUREAU_OVERLAP').length
   const awaitingCoordination = activeLinks.filter((l) => l.coordination_requested && !l.confirmed).length
+  const assignedToMe = list.filter((c) => c.assigned_officer_id === profile.id).length
+  const pendingTransfers = list.filter((c) => c.pending_transfer_bureau_id === profile.bureau_id).length
   const byStatus: Record<string, number> = {}
   for (const c of list) byStatus[c.status] = (byStatus[c.status] ?? 0) + 1
   const byBureau = state.bureaus.map((b) => ({
     code: b.code,
     name: b.name,
-    count: list.filter((c) => c.bureau_id === b.id && isPendingStatus(c.status)).length,
+    count: list.filter((c) => (c.bureau_id === b.id || c.pending_transfer_bureau_id === b.id) && isPendingStatus(c.status)).length,
   }))
   const months: DashboardStats['monthlyTrend'] = []
   for (let i = 5; i >= 0; i -= 1) {
@@ -375,6 +402,8 @@ export function dashboardStats(profile: Profile): DashboardStats {
     highPriorityOverlaps,
     crossBureau,
     awaitingCoordination,
+    assignedToMe,
+    pendingTransfers,
   }
 }
 
@@ -1069,8 +1098,8 @@ export function roleCan(role: Role, action: 'writeCase' | 'assign' | 'transfer' 
   if (role === 'SUPER_ADMIN') return true
   if (action === 'admin') return false
   if (action === 'reports') return role === 'SENIOR_MANAGEMENT' || role === 'BUREAU_HEAD'
-  if (action === 'assign' || action === 'transfer') return role === 'BUREAU_HEAD'
-  if (action === 'writeCase') return role === 'BUREAU_HEAD' || role === 'CASE_OFFICER' || role === 'REGIONAL_OFFICER'
+  if (action === 'assign' || action === 'transfer') return role === 'BUREAU_HEAD' || role === 'SENIOR_MANAGEMENT'
+  if (action === 'writeCase') return role === 'BUREAU_HEAD' || role === 'CASE_OFFICER' || role === 'REGIONAL_OFFICER' || role === 'SENIOR_MANAGEMENT'
   return false
 }
 
@@ -1118,9 +1147,10 @@ export function requestOTP(identifier: string, type: 'email' | 'mobile') {
     lastSentAt: now,
   })
 
+  const env = (typeof import.meta !== 'undefined' && import.meta.env) || (typeof globalThis !== 'undefined' && (globalThis as unknown as { process?: { env?: Record<string, string> } }).process?.env) || {}
   const provider = type === 'email' 
-    ? (import.meta.env.VITE_EMAIL_OTP_PROVIDER || 'simulation')
-    : (import.meta.env.VITE_SMS_OTP_PROVIDER || 'simulation')
+    ? (env.VITE_EMAIL_OTP_PROVIDER || 'simulation')
+    : (env.VITE_SMS_OTP_PROVIDER || 'simulation')
 
   // Supabase persistence if connected
   if (supabaseEnabled && supabase) {

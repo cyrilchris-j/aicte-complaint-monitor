@@ -32,14 +32,18 @@ create or replace function public.can_read_case(c public.complaint_cases)
 returns boolean language sql stable as $$
   select
     public.is_senior()
-    or (select role = 'BUREAU_HEAD' and bureau_id = c.bureau_id from public.current_profile())
-    or (select role = 'CASE_OFFICER' and (id = c.assigned_officer_id or bureau_id = c.bureau_id) from public.current_profile())
+    or (c.assigned_officer_id = (select id from public.current_profile()))
+    or (select role = 'BUREAU_HEAD' and (bureau_id = c.bureau_id or bureau_id = c.pending_transfer_bureau_id) from public.current_profile())
+    or (select role = 'CASE_OFFICER' and (id = c.assigned_officer_id or bureau_id = c.bureau_id or bureau_id = c.pending_transfer_bureau_id) from public.current_profile())
     or (
       (select role = 'REGIONAL_OFFICER' from public.current_profile())
-      and exists (
-        select 1 from public.institutions i
-        where i.id = c.institution_id
-          and i.region = (select region from public.current_profile())
+      and (
+        c.assigned_officer_id = (select id from public.current_profile())
+        or exists (
+          select 1 from public.institutions i
+          where i.id = c.institution_id
+            and i.region = (select region from public.current_profile())
+        )
       )
     );
 $$;

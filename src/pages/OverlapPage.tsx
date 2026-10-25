@@ -547,8 +547,11 @@ export function OverlapPage() {
                       <button
                         type="button"
                         onClick={() => {
-                          setActionFeedback(`Joint review assigned for ${inst.institution_name} across RB & PGRC.`)
-                          setTimeout(() => setActionFeedback(null), 3000)
+                          if (rbCases[0] && pgrcCases[0]) {
+                            linkCases(rbCases[0].id, pgrcCases[0].id, profile)
+                          }
+                          setActionFeedback(`✓ Joint review registered for ${inst.institution_name} across RB & PGRC. Bureau Heads notified.`)
+                          setTimeout(() => setActionFeedback(null), 3500)
                         }}
                         className="bg-[#003366] text-white font-bold px-3 py-1.5 rounded-[3px] hover:bg-[#002244] cursor-pointer flex items-center gap-1.5"
                       >
@@ -558,8 +561,16 @@ export function OverlapPage() {
                       <button
                         type="button"
                         onClick={() => {
-                          setActionFeedback(`Coordination request broadcasted to all concerned Bureau Heads.`)
-                          setTimeout(() => setActionFeedback(null), 3000)
+                          if (rbCases[0] && pgrcCases[0]) {
+                            linkCases(rbCases[0].id, pgrcCases[0].id, profile)
+                            const link = snapshot.links.find(
+                              (l) => (l.source_case_id === rbCases[0].id && l.target_case_id === pgrcCases[0].id) ||
+                                     (l.source_case_id === pgrcCases[0].id && l.target_case_id === rbCases[0].id)
+                            )
+                            if (link) requestCoordination(link.id, profile)
+                          }
+                          setActionFeedback(`⏳ Joint Bilateral Coordination request broadcasted to all concerned Bureau Heads for ${inst.institution_name}.`)
+                          setTimeout(() => setActionFeedback(null), 3500)
                         }}
                         className="bg-[#ff9933] text-[#002244] font-bold px-3 py-1.5 rounded-[3px] hover:bg-[#e68a00] cursor-pointer"
                       >

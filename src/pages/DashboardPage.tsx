@@ -16,8 +16,8 @@ import {
   YAxis,
 } from 'recharts'
 import { useAuth } from '../context/AuthContext'
-import { dashboardStats, getSnapshot, subscribe, visibleCases } from '../demo/store'
-import { KPICard, PageHeader, StatusBadge } from '../components/ui'
+import { acceptTransfer, dashboardStats, getSnapshot, subscribe, visibleCases } from '../demo/store'
+import { KPICard, PageHeader, SlaBadge, StatusBadge } from '../components/ui'
 import { formatDate, slaState } from '../lib/utils'
 import { ROLE_LABEL } from '../lib/constants'
 import type { Profile } from '../types'
@@ -29,7 +29,11 @@ import {
   KeyRound,
   CheckCircle2,
   X,
-  FileText
+  FileText,
+  ArrowRightLeft,
+  Inbox,
+  ArrowUpRight,
+  Clock,
 } from 'lucide-react'
 
 const PIE_COLORS = ['#003366', '#0284c7', '#64748b', '#b45309', '#15803d', '#b91c1c']
@@ -45,11 +49,70 @@ export function DashboardPage() {
   const [authPassword, setAuthPassword] = useState(demoPassword)
   const [authError, setAuthError] = useState<string | null>(null)
   const [authSuccess, setAuthSuccess] = useState<string | null>(null)
+  const [actionFeedback, setActionFeedback] = useState<string | null>(null)
+  const [actionTab, setActionTab] = useState<'all' | 'assigned' | 'transfers' | 'evidence'>('all')
 
   if (!profile) return null
 
   const stats = dashboardStats(profile)
   const cases = visibleCases(profile)
+
+  // 1. Pending incoming transfers to this bureau
+  const pendingTransfers = cases.filter(
+    (c) => c.pending_transfer_bureau_id && (c.pending_transfer_bureau_id === profile.bureau_id || profile.role === 'SUPER_ADMIN')
+  )
+
+  // 2. Cases assigned directly to this official
+  const assignedToMe = cases.filter((c) => c.assigned_officer_id === profile.id)
+
+  // 3. Cases requiring evidence or institution response
+  const pendingEvidence = cases.filter(
+    (c) =>
+      c.status === 'PENDING_INFORMATION' ||
+      c.verification_status === 'EVIDENCE_REQUIRED' ||
+      c.verification_status === 'INSTITUTION_RESPONSE_REQUIRED'
+  )
+
+  // Consolidated action items queue
+  const allActionItems = useMemo(() => {
+    const ids = new Set<string>()
+    const items = []
+    // Prioritize pending transfers
+    for (const c of pendingTransfers) {
+      if (!ids.has(c.id)) {
+        ids.add(c.id)
+        items.push({ case: c, type: 'TRANSFER_REQUEST' as const, label: 'Incoming Bureau Transfer' })
+      }
+    }
+    // Then direct assignments
+    for (const c of assignedToMe) {
+      if (!ids.has(c.id)) {
+        ids.add(c.id)
+        items.push({ case: c, type: 'ASSIGNED_TO_ME' as const, label: 'Direct Assignment' })
+      }
+    }
+    // Then pending evidence / response
+    for (const c of pendingEvidence) {
+      if (!ids.has(c.id)) {
+        ids.add(c.id)
+        items.push({ case: c, type: 'PENDING_EVIDENCE' as const, label: 'Evidence / Response Awaited' })
+      }
+    }
+    return items
+  }, [pendingTransfers, assignedToMe, pendingEvidence])
+
+  const filteredActionItems = useMemo(() => {
+    if (actionTab === 'assigned') return allActionItems.filter((i) => i.type === 'ASSIGNED_TO_ME')
+    if (actionTab === 'transfers') return allActionItems.filter((i) => i.type === 'TRANSFER_REQUEST')
+    if (actionTab === 'evidence') return allActionItems.filter((i) => i.type === 'PENDING_EVIDENCE')
+    return allActionItems
+  }, [actionTab, allActionItems])
+
+  const handleDashboardAcceptTransfer = (caseId: string, caseRef: string) => {
+    acceptTransfer(caseId, profile)
+    setActionFeedback(`✓ Transfer of ${caseRef} accepted. File is now under your Bureau authority.`)
+    setTimeout(() => setActionFeedback(null), 4000)
+  }
 
   const recent = cases
     .slice()
@@ -149,6 +212,78 @@ export function DashboardPage() {
           </div>
         }
       />
+
+      {/* Action feedback toast banner */}
+      {actionFeedback && (
+        <div className="p-3 bg-[#f0fdf4] border border-[#bbf7d0] text-[#15803d] text-[13px] rounded-[3px] flex items-center gap-2 font-bold shadow-xs">
+          <CheckCircle2 size={16} />
+          <span>{actionFeedback}</span>
+        </div>
+      )}
+
+      {/* High-priority Incoming Transfer Alert Banner */}
+      {pendingTransfers.length > 0 && (
+        <div className="p-4 bg-[#fffbeb] border-2 border-[#f59e0b] rounded-[3px] text-[13px] shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <span className="p-2 bg-[#fef3c7] rounded-[3px] text-[#b45309] shrink-0 mt-0.5">
+              <AlertTriangle size={20} />
+            </span>
+            <div>
+              <h3 className="font-bold text-[#92400e] text-[14px] flex items-center gap-2">
+                <span>Incoming Bureau Transfer Request Pending Acceptance</span>
+                <span className="bg-[#b45309] text-white text-[11px] px-2 py-0.2 rounded-full font-bold">
+                  {pendingTransfers.length} file{pendingTransfers.length > 1 ? 's' : ''}
+                </span>
+              </h3>
+              <p className="text-[#b45309] text-[12px] mt-0.5">
+                Case files have been formally transferred to your bureau for departmental action. Review and accept file ownership to initiate inquiry.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {pendingTransfers.slice(0, 3).map((pt) => (
+              <button
+                key={pt.id}
+                type="button"
+                onClick={() => handleDashboardAcceptTransfer(pt.id, pt.case_id)}
+                className="bg-[#003366] hover:bg-[#002244] text-white font-bold px-3 py-1.5 rounded-[3px] text-[12px] flex items-center gap-1.5 cursor-pointer shadow-xs transition"
+              >
+                <CheckCircle2 size={14} className="text-emerald-400" />
+                <span>Accept {pt.case_id}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Quick Task Status Summary Ribbon */}
+      <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-white border border-[#cbd5e1] rounded-[3px] text-[12px]">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-[#64748b] font-bold uppercase tracking-wide text-[11px]">Your Work Queue:</span>
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#f0f4f8] text-[#003366] font-bold border border-[#cbd5e1]">
+            <UserCheck size={13} className="text-[#003366]" />
+            <span>Assigned to You:</span>
+            <strong className="text-[#b45309]">{assignedToMe.length}</strong>
+          </span>
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#fffbeb] text-[#92400e] font-bold border border-[#fde68a]">
+            <ArrowRightLeft size={13} className="text-[#b45309]" />
+            <span>Pending Transfers:</span>
+            <strong>{pendingTransfers.length}</strong>
+          </span>
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#f8fafc] text-[#475569] font-medium border border-[#e2e8f0]">
+            <Clock size={13} className="text-[#64748b]" />
+            <span>Evidence / Response Pending:</span>
+            <strong className="text-[#003366]">{pendingEvidence.length}</strong>
+          </span>
+        </div>
+        <Link
+          to="/assigned"
+          className="text-[#003366] hover:underline font-bold text-[12px] flex items-center gap-1"
+        >
+          <span>Open Full Assignment Queue</span>
+          <ArrowUpRight size={13} />
+        </Link>
+      </div>
 
       {/* 8 Mandatory KPI Cards (Section 10 Requirements) */}
       <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4 xl:grid-cols-8">
@@ -517,6 +652,177 @@ export function DashboardPage() {
         </div>
       )}
 
+      {/* SECTION: ASSIGNED TASKS & ACTION QUEUE */}
+      <section className="rounded-[3px] border border-[#cbd5e1] bg-white shadow-xs overflow-hidden">
+        <header className="border-b border-[#e2e8f0] bg-[#f8fafc] px-4 py-3 flex flex-wrap items-center justify-between gap-2 border-l-4 border-l-[#ff9933]">
+          <div className="flex items-center gap-2">
+            <Inbox size={18} className="text-[#003366]" />
+            <h2 className="text-[15px] font-bold text-[#003366] uppercase tracking-wide">
+              Official Task Queue & Requested Assignments (कार्य एवं फाइल दायित्व)
+            </h2>
+            <span className="bg-[#003366] text-white text-[11px] font-bold px-2 py-0.5 rounded-full">
+              {allActionItems.length} Active Items
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Link to="/assigned" className="text-[12px] font-bold text-[#003366] hover:underline flex items-center gap-1">
+              <span>View Full Assignment Scope →</span>
+            </Link>
+          </div>
+        </header>
+
+        {/* Action Queue Filter Tabs */}
+        <div className="px-4 py-2 bg-[#f1f5f9] border-b border-[#e2e8f0] flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setActionTab('all')}
+            className={`px-3 py-1 rounded-[3px] text-[11px] font-bold transition cursor-pointer ${
+              actionTab === 'all' ? 'bg-[#003366] text-white shadow-xs' : 'bg-white text-[#475569] hover:bg-[#e2e8f0]'
+            }`}
+          >
+            All Action Queue ({allActionItems.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActionTab('assigned')}
+            className={`px-3 py-1 rounded-[3px] text-[11px] font-bold transition cursor-pointer ${
+              actionTab === 'assigned' ? 'bg-[#003366] text-white shadow-xs' : 'bg-white text-[#475569] hover:bg-[#e2e8f0]'
+            }`}
+          >
+            Assigned to You ({assignedToMe.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActionTab('transfers')}
+            className={`px-3 py-1 rounded-[3px] text-[11px] font-bold transition cursor-pointer ${
+              actionTab === 'transfers' ? 'bg-[#b45309] text-white shadow-xs' : 'bg-white text-[#475569] hover:bg-[#e2e8f0]'
+            }`}
+          >
+            Incoming Bureau Transfers ({pendingTransfers.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActionTab('evidence')}
+            className={`px-3 py-1 rounded-[3px] text-[11px] font-bold transition cursor-pointer ${
+              actionTab === 'evidence' ? 'bg-[#003366] text-white shadow-xs' : 'bg-white text-[#475569] hover:bg-[#e2e8f0]'
+            }`}
+          >
+            Evidence / Response Awaited ({pendingEvidence.length})
+          </button>
+        </div>
+
+        {filteredActionItems.length === 0 ? (
+          <div className="p-6 text-center text-[#64748b]">
+            <CheckCircle2 size={32} className="mx-auto text-emerald-600 mb-2 opacity-80" />
+            <p className="font-bold text-[#1e293b] text-[14px]">
+              {actionTab === 'transfers'
+                ? 'No Pending Bureau Transfers'
+                : actionTab === 'assigned'
+                ? 'No Cases Directly Assigned to You'
+                : 'All Files Up to Date'}
+            </p>
+            <p className="text-[12px] text-[#64748b] mt-1">
+              There are no pending action items in this queue filter. Files will appear here automatically when requested or assigned.
+            </p>
+          </div>
+        ) : (
+          <div className="table-scroll">
+            <table className="w-full text-left text-[13px]">
+              <thead className="bg-[#f8fafc] text-[#475569] border-b border-[#cbd5e1] text-[11px] font-bold uppercase tracking-wider">
+                <tr>
+                  <th className="px-3.5 py-2.5">Case Reference</th>
+                  <th className="px-3 py-2.5">Institution & Subject</th>
+                  <th className="px-3 py-2.5">Task Nature</th>
+                  <th className="px-3 py-2.5">Assigned Officer</th>
+                  <th className="px-3 py-2.5">Status</th>
+                  <th className="px-3 py-2.5">SLA Timeline</th>
+                  <th className="px-3 py-2.5 text-right">Official Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#e2e8f0]">
+                {filteredActionItems.map(({ case: c, type, label }) => {
+                  const inst = snapshot.institutions.find((i) => i.id === c.institution_id)
+                  const officer = snapshot.profiles.find((p) => p.id === c.assigned_officer_id)
+                  const isPendingTransfer = c.pending_transfer_bureau_id && (c.pending_transfer_bureau_id === profile.bureau_id || profile.role === 'SUPER_ADMIN')
+
+                  return (
+                    <tr key={c.id} className="hover:bg-[#f8fafc] transition">
+                      <td className="px-3.5 py-3 font-mono">
+                        <Link className="font-bold text-[#003366] hover:underline" to={`/complaints/${c.id}`}>
+                          {c.case_id}
+                        </Link>
+                        <span className="block text-[10px] text-[#64748b] font-sans">
+                          Recd: {formatDate(c.received_date)}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3">
+                        <span className="font-medium text-[#1e293b] block line-clamp-1">{inst?.institution_name}</span>
+                        <span className="text-[11px] text-[#64748b] line-clamp-1">{c.subject}</span>
+                      </td>
+                      <td className="px-3 py-3">
+                        <span
+                          className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded border ${
+                            type === 'TRANSFER_REQUEST'
+                              ? 'bg-[#fffbeb] text-[#b45309] border-[#fde68a]'
+                              : type === 'ASSIGNED_TO_ME'
+                              ? 'bg-[#f0f4f8] text-[#003366] border-[#cbd5e1]'
+                              : 'bg-[#f8fafc] text-[#475569] border-[#e2e8f0]'
+                          }`}
+                        >
+                          {label}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3">
+                        {officer ? (
+                          <div className="text-[12px]">
+                            <span className="font-semibold text-[#1e293b]">{officer.full_name}</span>
+                            {c.assigned_officer_id === profile.id && (
+                              <span className="ml-1 text-[10px] bg-[#dbeafe] text-[#1e40af] font-bold px-1.5 py-0.2 rounded">
+                                You
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-[#94a3b8] italic text-[12px]">Unassigned</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-3">
+                        <StatusBadge status={c.status} />
+                      </td>
+                      <td className="px-3 py-3">
+                        <SlaBadge state={slaState(c)} />
+                      </td>
+                      <td className="px-3 py-3 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {isPendingTransfer && (
+                            <button
+                              type="button"
+                              onClick={() => handleDashboardAcceptTransfer(c.id, c.case_id)}
+                              className="bg-[#15803d] hover:bg-[#166534] text-white text-[11px] font-bold px-2.5 py-1 rounded-[3px] shadow-xs cursor-pointer flex items-center gap-1 transition"
+                            >
+                              <CheckCircle2 size={12} />
+                              <span>Accept Transfer</span>
+                            </button>
+                          )}
+                          <Link
+                            to={`/complaints/${c.id}`}
+                            className="bg-white hover:bg-[#003366] hover:text-white text-[#003366] border border-[#cbd5e1] text-[11px] font-bold px-2.5 py-1 rounded-[3px] transition inline-flex items-center gap-1"
+                          >
+                            <span>Open File</span>
+                            <ArrowUpRight size={11} />
+                          </Link>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
       {/* Case File Activity Table */}
       <section className="rounded-[3px] border border-[#cbd5e1] bg-white shadow-xs overflow-hidden">
         <header className="border-b border-[#e2e8f0] bg-[#f8fafc] px-4 py-3 flex items-center justify-between border-l-4 border-l-[#003366]">
@@ -535,13 +841,18 @@ export function DashboardPage() {
                 <th className="px-3.5 py-2.5">Case ID</th>
                 <th className="px-3.5 py-2.5">Institution</th>
                 <th className="px-3.5 py-2.5">Category</th>
+                <th className="px-3.5 py-2.5">Assigned Officer</th>
                 <th className="px-3.5 py-2.5">Status</th>
+                <th className="px-3.5 py-2.5">SLA Compliance</th>
                 <th className="px-3.5 py-2.5">Last Action Date</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#e2e8f0]">
               {recent.map((c) => {
                 const inst = snapshot.institutions.find((i) => i.id === c.institution_id)
+                const officer = snapshot.profiles.find((p) => p.id === c.assigned_officer_id)
+                const isMine = c.assigned_officer_id === profile.id
+
                 return (
                   <tr key={c.id} className="hover:bg-[#f8fafc] transition">
                     <td className="px-3.5 py-2.5">
@@ -554,7 +865,19 @@ export function DashboardPage() {
                     </td>
                     <td className="px-3.5 py-2.5 text-[#475569]">{c.complaint_category}</td>
                     <td className="px-3.5 py-2.5">
+                      {officer ? (
+                        <span className={`text-[12px] font-medium ${isMine ? 'text-[#003366] font-bold' : 'text-[#334155]'}`}>
+                          {officer.full_name} {isMine && '(You)'}
+                        </span>
+                      ) : (
+                        <span className="text-[#94a3b8] italic text-[12px]">Unassigned</span>
+                      )}
+                    </td>
+                    <td className="px-3.5 py-2.5">
                       <StatusBadge status={c.status} />
+                    </td>
+                    <td className="px-3.5 py-2.5">
+                      <SlaBadge state={slaState(c)} />
                     </td>
                     <td className="px-3.5 py-2.5 text-[#64748b] text-[12px]">{formatDate(c.last_action_date)}</td>
                   </tr>

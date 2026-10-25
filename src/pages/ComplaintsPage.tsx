@@ -11,6 +11,7 @@ export function ComplaintsPage() {
   const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
   const [q, setQ] = useState('')
   const [bureau, setBureau] = useState('')
+  const [officerFilter, setOfficerFilter] = useState('')
   const [status, setStatus] = useState('')
   const [priority, setPriority] = useState('')
   const [category, setCategory] = useState('')
@@ -34,7 +35,10 @@ export function ComplaintsPage() {
           !inst?.institution_name.toLowerCase().includes(query)
         )
           return false
-        if (bureau && c.bureau_id !== bureau) return false
+        if (bureau && c.bureau_id !== bureau && c.pending_transfer_bureau_id !== bureau) return false
+        if (officerFilter === 'me' && c.assigned_officer_id !== profile.id) return false
+        if (officerFilter === 'unassigned' && c.assigned_officer_id) return false
+        if (officerFilter && officerFilter !== 'me' && officerFilter !== 'unassigned' && c.assigned_officer_id !== officerFilter) return false
         if (status && c.status !== status) return false
         if (priority && c.priority !== priority) return false
         if (category && c.complaint_category !== category) return false
@@ -46,7 +50,7 @@ export function ComplaintsPage() {
         return true
       })
       .sort((a, b) => b[sort].localeCompare(a[sort]))
-  }, [snapshot, profile, q, bureau, status, priority, category, overlap, sla, sort])
+  }, [snapshot, profile, q, bureau, officerFilter, status, priority, category, overlap, sla, sort])
 
   if (!profile) return null
 
@@ -70,7 +74,7 @@ export function ComplaintsPage() {
         {priority ? <span className="rounded-sm bg-soft px-2 py-1">Priority: {priority}</span> : null}
         {overlap ? <span className="rounded-sm bg-soft px-2 py-1">Overlap: {overlap}</span> : null}
       </div>
-      <div className="mb-4 grid gap-3 md:grid-cols-4 xl:grid-cols-7">
+      <div className="mb-4 grid gap-3 md:grid-cols-4 xl:grid-cols-8">
         <Field label="Search">
           <input className={inputClass} value={q} onChange={(e) => { setQ(e.target.value); setPage(1) }} placeholder="Case ID / institution / subject" />
         </Field>
@@ -80,6 +84,20 @@ export function ComplaintsPage() {
             {snapshot.bureaus.map((b) => (
               <option key={b.id} value={b.id}>{b.code}</option>
             ))}
+          </select>
+        </Field>
+        <Field label="Assigned Officer">
+          <select className={inputClass} value={officerFilter} onChange={(e) => { setOfficerFilter(e.target.value); setPage(1) }}>
+            <option value="">All Officers</option>
+            <option value="me">Assigned to Me</option>
+            <option value="unassigned">Unassigned</option>
+            {snapshot.profiles
+              .filter((p) => p.role === 'CASE_OFFICER' || p.role === 'REGIONAL_OFFICER' || p.role === 'BUREAU_HEAD')
+              .map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.full_name} ({p.designation.split(',')[0]})
+                </option>
+              ))}
           </select>
         </Field>
         <Field label="Status">

@@ -48,7 +48,9 @@ export function CaseDetailPage() {
   const docs = snapshot.documents.filter((d) => d.case_id === c.id)
   const last = actions[0]
   const canWrite = roleCan(profile.role, 'writeCase')
-  const officers = snapshot.profiles.filter((p) => p.role === 'CASE_OFFICER' && p.bureau_id === c.bureau_id)
+  const officers = snapshot.profiles.filter(
+    (p) => p.active && (p.role === 'CASE_OFFICER' || p.role === 'REGIONAL_OFFICER' || p.role === 'BUREAU_HEAD'),
+  )
   const suspicious = snapshot.suspiciousPatterns.find((s) => s.related_case_ids.includes(c.id))
 
   return (
@@ -61,6 +63,32 @@ export function CaseDetailPage() {
         ]}
       />
       <ActionNotice message={notice} onDismiss={() => setNotice(null)} />
+
+      {c.pending_transfer_bureau_id ? (
+        <div className="rounded-[3px] border-2 border-[#f59e0b] bg-[#fffbeb] p-3.5 text-[13px] flex flex-wrap items-center justify-between gap-3 shadow-xs">
+          <div className="text-[#92400e]">
+            <p className="font-bold text-[14px]">⚠️ Case Transfer Requested</p>
+            <p className="text-[12px] mt-0.5">
+              This case file has been requested for transfer to{' '}
+              <strong>{snapshot.bureaus.find((b) => b.id === c.pending_transfer_bureau_id)?.name} ({snapshot.bureaus.find((b) => b.id === c.pending_transfer_bureau_id)?.code})</strong>.
+            </p>
+          </div>
+          {profile.bureau_id === c.pending_transfer_bureau_id || profile.role === 'SUPER_ADMIN' ? (
+            <Button
+              onClick={() => {
+                acceptTransfer(c.id, profile)
+                setNotice('File transfer accepted! Case is now under your Bureau authority.')
+              }}
+            >
+              Accept Bureau Transfer
+            </Button>
+          ) : (
+            <span className="text-[12px] font-semibold text-[#b45309] bg-white px-2.5 py-1 rounded border border-[#fde68a]">
+              Awaiting Target Bureau Acceptance
+            </span>
+          )}
+        </div>
+      ) : null}
       <div className="rounded-sm border border-line bg-white p-5 app-shadow">
         <p className="text-[12px] font-semibold tracking-wide text-muted uppercase">Case file</p>
         <h1 className="font-display text-[30px] text-navy">CASE #{c.case_id}</h1>
@@ -341,13 +369,25 @@ export function CaseDetailPage() {
               <div className="rounded-[3px] border border-[#cbd5e1] bg-[#f8fafc] p-3 flex flex-wrap items-end gap-3">
                 <div className="flex-1 min-w-[200px]">
                   <Field label="Assign Official Case Officer">
-                    <select className={inputClass} value={assignTo} onChange={(e) => setAssignTo(e.target.value)}>
-                      <option value="">-- Select Officer --</option>
-                      {officers.map((o) => (
-                        <option key={o.id} value={o.id}>
-                          {o.full_name} ({o.designation})
-                        </option>
-                      ))}
+                    <select
+                      className={inputClass}
+                      value={assignTo || c.assigned_officer_id || ''}
+                      onChange={(e) => setAssignTo(e.target.value)}
+                    >
+                      <option value="">-- Select Officer to Assign / Delegate --</option>
+                      {snapshot.bureaus.map((b) => {
+                        const bOfficers = officers.filter((o) => o.bureau_id === b.id)
+                        if (bOfficers.length === 0) return null
+                        return (
+                          <optgroup key={b.id} label={`${b.name} (${b.code})`}>
+                            {bOfficers.map((o) => (
+                              <option key={o.id} value={o.id}>
+                                {o.full_name} — {o.designation}
+                              </option>
+                            ))}
+                          </optgroup>
+                        )
+                      })}
                     </select>
                   </Field>
                 </div>

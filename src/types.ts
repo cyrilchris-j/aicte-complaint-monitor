@@ -327,6 +327,8 @@ export interface DashboardStats {
   highPriorityOverlaps: number
   crossBureau: number
   awaitingCoordination: number
+  assignedToMe: number
+  pendingTransfers: number
   byStatus: Record<string, number>
   byBureau: { code: string; name: string; count: number }[]
   monthlyTrend: { month: string; received: number; disposed: number }[]
