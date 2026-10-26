@@ -65,9 +65,9 @@ export function LoginPage() {
 
       {/* 4. Main Body: AICTE Login Interface */}
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 py-8 md:py-12 flex flex-col justify-center">
-        <div className="grid lg:grid-cols-12 gap-8 items-start">
-          {/* Left Column: Official Context & Mandate */}
-          <div className="lg:col-span-7 space-y-6">
+        <div className="flex flex-col lg:grid lg:grid-cols-12 gap-8 items-start">
+          {/* Left Column: Official Context & Mandate — on mobile renders second (order-2) */}
+          <div className="lg:col-span-7 space-y-6 order-2 lg:order-1">
             <div className="bg-white rounded-[3px] border border-[#cbd5e1] p-6 shadow-sm">
               <div className="flex items-center gap-2 text-[#003366] border-b border-[#e2e8f0] pb-3 mb-4">
                 <Building size={20} className="text-[#003366]" />
@@ -172,8 +172,8 @@ export function LoginPage() {
             </div>
           </div>
 
-          {/* Right Column: Official Login Form */}
-          <div className="lg:col-span-5">
+          {/* Right Column: Official Login Form — on mobile renders first (order-1) */}
+          <div className="lg:col-span-5 order-1 lg:order-2">
             <div className="bg-white rounded-[3px] border-2 border-[#003366] shadow-md overflow-hidden">
               <div className="bg-[#003366] px-6 py-4 text-white flex items-center justify-between">
                 <div>
