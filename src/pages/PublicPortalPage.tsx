@@ -1,4 +1,4 @@
-import { useEffect, useState, useSyncExternalStore } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { Link } from 'react-router-dom'
 import { GovernmentTopBar, OfficialAicteHeader } from '../components/AicteBrand'
 import { getSnapshot, requestOTP, submitPublicComplaint, subscribe, verifyOTP, getPublicTracking } from '../demo/store'
@@ -21,12 +21,35 @@ import {
   UserCheck
 } from 'lucide-react'
 
+const FORM_STEPS = [
+  { step: 1, label: 'Step 1', title: 'Complainant' },
+  { step: 2, label: 'Step 2', title: 'Dual OTP' },
+  { step: 3, label: 'Step 3', title: 'Institution' },
+  { step: 4, label: 'Step 4', title: 'Grievance Details' },
+  { step: 5, label: 'Step 5', title: 'Confirmation' },
+] as const
+
 export function PublicPortalPage() {
   const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
   const [activeTab, setActiveTab] = useState<'lodge' | 'track'>('lodge')
 
   // Step state for lodging a complaint
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1)
+  const stepsContainerRef = useRef<HTMLDivElement>(null)
+
+  // Auto-scroll active step box into view on mobile
+  useEffect(() => {
+    if (stepsContainerRef.current) {
+      const activeEl = stepsContainerRef.current.children[step - 1] as HTMLElement
+      if (activeEl) {
+        activeEl.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest',
+          inline: 'center',
+        })
+      }
+    }
+  }, [step])
 
   // Step 1: Complainant Details
   const [complainantType, setComplainantType] = useState<ComplainantType>('Student')
@@ -344,68 +367,73 @@ export function PublicPortalPage() {
               </div>
 
               {/* Multi-step progress tracker */}
-              <div className="grid grid-cols-5 gap-2 text-center text-[12px] font-bold mb-2">
-                <div
-                  className={`p-2 rounded-[3px] border ${
-                    step === 1
-                      ? 'border-[#003366] bg-[#003366] text-white'
-                      : step > 1
-                      ? 'border-emerald-600 bg-emerald-50 text-emerald-800'
-                      : 'border-[#cbd5e1] bg-[#f8fafc] text-[#64748b]'
-                  }`}
-                >
-                  Step 1: Complainant
+              <div className="mb-2">
+                {/* Mobile Step Status Header */}
+                <div className="sm:hidden flex items-center justify-between text-[11px] text-[#64748b] mb-2 px-1">
+                  <span className="font-medium">
+                    Step {step} of 5: <strong className="text-[#003366] font-bold">{FORM_STEPS[step - 1]?.title}</strong>
+                  </span>
+                  <span className="text-[10px] text-[#94a3b8] flex items-center gap-0.5">Swipe steps →</span>
                 </div>
+
+                {/* Steps Container: fixed length dimensions for mobile view with horizontal scroll, 5-col grid for tablet/desktop */}
                 <div
-                  className={`p-2 rounded-[3px] border ${
-                    step === 2
-                      ? 'border-[#003366] bg-[#003366] text-white'
-                      : step > 2
-                      ? 'border-emerald-600 bg-emerald-50 text-emerald-800'
-                      : 'border-[#cbd5e1] bg-[#f8fafc] text-[#64748b]'
-                  }`}
+                  ref={stepsContainerRef}
+                  className="flex sm:grid sm:grid-cols-5 gap-2 overflow-x-auto pb-2 sm:pb-0 scroll-smooth no-scrollbar sm:overflow-visible"
                 >
-                  Step 2: Dual OTP
-                </div>
-                <div
-                  className={`p-2 rounded-[3px] border ${
-                    step === 3
-                      ? 'border-[#003366] bg-[#003366] text-white'
-                      : step > 3
-                      ? 'border-emerald-600 bg-emerald-50 text-emerald-800'
-                      : 'border-[#cbd5e1] bg-[#f8fafc] text-[#64748b]'
-                  }`}
-                >
-                  Step 3: Institution
-                </div>
-                <div
-                  className={`p-2 rounded-[3px] border ${
-                    step === 4
-                      ? 'border-[#003366] bg-[#003366] text-white'
-                      : step > 4
-                      ? 'border-emerald-600 bg-emerald-50 text-emerald-800'
-                      : 'border-[#cbd5e1] bg-[#f8fafc] text-[#64748b]'
-                  }`}
-                >
-                  Step 4: Grievance Details
-                </div>
-                <div
-                  className={`p-2 rounded-[3px] border ${
-                    step === 5
-                      ? 'border-emerald-600 bg-emerald-600 text-white'
-                      : 'border-[#cbd5e1] bg-[#f8fafc] text-[#64748b]'
-                  }`}
-                >
-                  Step 5: Confirmation
+                  {FORM_STEPS.map((s) => {
+                    const isActive = step === s.step
+                    const isCompleted = step > s.step
+
+                    let boxStyles = 'border-[#cbd5e1] bg-[#f8fafc] text-[#64748b]'
+                    let labelStyles = 'text-[#94a3b8]'
+                    let titleStyles = 'text-[#475569]'
+
+                    if (isActive) {
+                      if (s.step === 5) {
+                        boxStyles = 'border-emerald-600 bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-200'
+                      } else {
+                        boxStyles = 'border-[#003366] bg-[#003366] text-white shadow-sm ring-2 ring-blue-100'
+                      }
+                      labelStyles = 'text-white/80'
+                      titleStyles = 'text-white'
+                    } else if (isCompleted) {
+                      boxStyles = 'border-emerald-600 bg-emerald-50 text-emerald-800'
+                      labelStyles = 'text-emerald-700 font-semibold'
+                      titleStyles = 'text-emerald-900'
+                    }
+
+                    return (
+                      <div
+                        key={s.step}
+                        className={`w-[130px] min-w-[130px] sm:w-auto sm:min-w-0 h-[60px] shrink-0 sm:shrink flex flex-col items-center justify-center px-2 py-1.5 rounded-[3px] border text-center transition-all duration-150 select-none overflow-hidden ${boxStyles} ${
+                          isCompleted && step !== 5 ? 'cursor-pointer hover:opacity-90' : ''
+                        }`}
+                        onClick={() => {
+                          if (isCompleted && step !== 5) {
+                            setStep(s.step as any)
+                          }
+                        }}
+                      >
+                        <span className={`text-[10px] uppercase tracking-wider block leading-none mb-1 flex items-center justify-center gap-1 ${labelStyles}`}>
+                          {isCompleted ? <Check size={11} className="stroke-[3]" /> : null}
+                          {s.label}
+                        </span>
+                        <span className={`text-[12px] font-bold block leading-tight break-words max-w-full ${titleStyles}`}>
+                          {s.title}
+                        </span>
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             </div>
 
             {/* Simulated Banner for Easy Evaluation / Demo Testing */}
             {simulatedNotice && (
-              <div className="bg-[#fffbeb] border border-[#fef3c7] p-3 rounded-[3px] text-[13px] text-[#92400e] flex items-center justify-between">
-                <span className="font-mono font-bold">{simulatedNotice}</span>
-                <span className="text-[11px] bg-[#d97706] text-white px-2 py-0.5 rounded font-sans font-bold">
+              <div className="bg-[#fffbeb] border border-[#fef3c7] p-3 rounded-[3px] text-[13px] text-[#92400e] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <span className="font-mono font-bold break-all sm:break-normal">{simulatedNotice}</span>
+                <span className="text-[11px] bg-[#d97706] text-white px-2 py-0.5 rounded font-sans font-bold shrink-0 self-start sm:self-auto">
                   Demo Gateway Active
                 </span>
               </div>
