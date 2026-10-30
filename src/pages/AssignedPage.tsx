@@ -13,18 +13,20 @@ export function AssignedPage() {
   const [q, setQ] = useState('')
   const [actionNotice, setActionNotice] = useState<string | null>(null)
 
-  if (!profile) return null
-
   // 1. Cases directly assigned to the logged-in user
-  const assignedToMe = snapshot.cases.filter((c) => c.assigned_officer_id === profile.id)
+  const assignedToMe = profile ? snapshot.cases.filter((c) => c.assigned_officer_id === profile.id) : []
 
   // 2. Cases requested for transfer to the user's bureau
-  const pendingTransfers = snapshot.cases.filter(
-    (c) => c.pending_transfer_bureau_id && (c.pending_transfer_bureau_id === profile.bureau_id || profile.role === 'SUPER_ADMIN')
-  )
+  const pendingTransfers = profile
+    ? snapshot.cases.filter(
+        (c) =>
+          c.pending_transfer_bureau_id &&
+          (c.pending_transfer_bureau_id === profile.bureau_id || profile.role === 'SUPER_ADMIN')
+      )
+    : []
 
   // 3. All cases assigned within user's visibility scope
-  const inScope = visibleCases(profile).filter((c) => c.assigned_officer_id)
+  const inScope = profile ? visibleCases(profile).filter((c) => c.assigned_officer_id) : []
 
   const activeList = useMemo(() => {
     let base = assignedToMe
@@ -46,10 +48,13 @@ export function AssignedPage() {
   }, [tab, assignedToMe, pendingTransfers, inScope, q, snapshot])
 
   const handleAccept = (caseId: string) => {
+    if (!profile) return
     acceptTransfer(caseId, profile)
     setActionNotice('File transfer accepted! Case is now officially under your Bureau authority.')
     setTimeout(() => setActionNotice(null), 4000)
   }
+
+  if (!profile) return null
 
   return (
     <div className="space-y-4">

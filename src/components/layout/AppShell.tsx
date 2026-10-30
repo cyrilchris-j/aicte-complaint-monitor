@@ -1,4 +1,4 @@
-import { ChevronDown, Menu, Search, X, PlusCircle } from 'lucide-react'
+import { ChevronDown, Menu, Search, X, PlusCircle, Sparkles } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link, NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
@@ -7,6 +7,7 @@ import { cn } from '../../lib/utils'
 import { getSnapshot, globalSearch, subscribe } from '../../demo/store'
 import { useSyncExternalStore } from 'react'
 import { GovernmentTopBar, OfficialAicteHeader } from '../AicteBrand'
+import { SihDemoModal } from '../SihDemoModal'
 
 export function AppShell() {
   const { profile, logout } = useAuth()
@@ -14,6 +15,7 @@ export function AppShell() {
   const [q, setQ] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
   const [adminDropdown, setAdminDropdown] = useState(false)
+  const [demoTourOpen, setDemoTourOpen] = useState(false)
   const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
   const navigate = useNavigate()
   const location = useLocation()
@@ -126,6 +128,15 @@ export function AppShell() {
 
           {/* Right Action: Register Case & Public Portal */}
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setDemoTourOpen(true)}
+              className="bg-[#ffd580] hover:bg-[#ffcc66] text-[#002244] font-black text-[12px] px-2.5 py-1.5 rounded-[3px] transition flex items-center gap-1.5 shadow-xs uppercase tracking-wide cursor-pointer border border-[#ff9933]"
+              title="Launch Guided SIH 2026 Jury Presentation Tour"
+            >
+              <Sparkles size={14} className="text-[#b45309]" />
+              <span className="hidden sm:inline">SIH Demo Tour</span>
+            </button>
             <Link
               to="/"
               className="hidden md:flex items-center gap-1 text-[11px] font-bold text-white/90 hover:text-white bg-[#002244] px-2.5 py-1.5 rounded-[3px] border border-white/20 transition"
@@ -312,6 +323,8 @@ export function AppShell() {
           </div>
         </div>
       </footer>
+
+      <SihDemoModal isOpen={demoTourOpen} onClose={() => setDemoTourOpen(false)} />
     </div>
   )
 }

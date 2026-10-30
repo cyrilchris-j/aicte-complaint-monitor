@@ -51,6 +51,7 @@ export function InstitutionsPage() {
   const [region, setRegion] = useState('')
   const [status, setStatus] = useState('')
   const [volume, setVolume] = useState('')
+  const [watchlistOnly, setWatchlistOnly] = useState(false)
 
   // Modal for adding a new institution
   const [showAddModal, setShowAddModal] = useState(false)
@@ -66,8 +67,18 @@ export function InstitutionsPage() {
     if (!profile) return []
     return snapshot.institutions
       .filter((i) => (profile.role === 'REGIONAL_OFFICER' ? i.region === profile.region : true))
-      .map((i) => ({ i, m: institutionMetrics(i.id, profile) }))
-      .filter(({ i, m }) => {
+      .map((i) => {
+        const m = institutionMetrics(i.id, profile)
+        const activeCases = snapshot.cases.filter(
+          (c) => c.institution_id === i.id && c.status !== 'DISPOSED' && c.status !== 'CLOSED'
+        )
+        const bureaus = new Set(activeCases.map((c) => c.bureau_id))
+        const isMultiBureau = bureaus.size >= 2
+        const isWatchlist = m.risk || isMultiBureau || m.overdue > 0
+        return { i, m, isMultiBureau, isWatchlist, activeCount: activeCases.length }
+      })
+      .filter(({ i, m, isWatchlist }) => {
+        if (watchlistOnly && !isWatchlist) return false
         const query = q.trim().toLowerCase()
         if (query && !i.institution_name.toLowerCase().includes(query) && !i.aicte_permanent_id.toLowerCase().includes(query)) return false
         if (state && i.state !== state) return false
@@ -78,7 +89,7 @@ export function InstitutionsPage() {
         if (volume === 'low' && m.total >= 3) return false
         return true
       })
-  }, [snapshot, profile, q, state, region, status, volume])
+  }, [snapshot, profile, q, state, region, status, volume, watchlistOnly])
 
   if (!profile) return null
 
@@ -121,6 +132,65 @@ export function InstitutionsPage() {
           </Button>
         }
       />
+
+      {/* Regional & Watchlist KPI Ribbon */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 mb-4">
+        <div className="rounded-[3px] border border-[#cbd5e1] bg-white p-3.5 shadow-xs">
+          <span className="text-[11px] font-bold text-[#64748b] uppercase tracking-wider block">
+            Monitored Technical Institutions
+          </span>
+          <p className="mt-1 text-[24px] font-black text-[#003366] font-mono leading-none">
+            {snapshot.institutions.length}
+          </p>
+          <span className="text-[11px] text-[#64748b] mt-1 block">Nationwide AICTE Jurisdiction</span>
+        </div>
+
+        <div
+          onClick={() => setWatchlistOnly(!watchlistOnly)}
+          className={`rounded-[3px] border p-3.5 shadow-xs cursor-pointer transition select-none ${
+            watchlistOnly
+              ? 'border-[#b91c1c] bg-[#fef2f2] ring-2 ring-red-300'
+              : 'border-[#cbd5e1] bg-white hover:border-[#f87171]'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-[#b91c1c] uppercase tracking-wider">
+              ⚠️ High Attention Watchlist
+            </span>
+            <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${watchlistOnly ? 'bg-[#b91c1c] text-white' : 'bg-[#fee2e2] text-[#b91c1c]'}`}>
+              {watchlistOnly ? 'Filter Active' : 'Click to filter'}
+            </span>
+          </div>
+          <p className="mt-1 text-[24px] font-black text-[#b91c1c] font-mono leading-none">
+            {snapshot.institutions.filter((inst) => {
+              const cs = snapshot.cases.filter((c) => c.institution_id === inst.id && c.status !== 'DISPOSED' && c.status !== 'CLOSED')
+              return new Set(cs.map((c) => c.bureau_id)).size >= 2
+            }).length}
+          </p>
+          <span className="text-[11px] text-[#7f1d1d] mt-1 block">Cross-Bureau active inquiries</span>
+        </div>
+
+        <div className="rounded-[3px] border border-[#cbd5e1] bg-white p-3.5 shadow-xs">
+          <span className="text-[11px] font-bold text-[#64748b] uppercase tracking-wider block">
+            Southern Region Active
+          </span>
+          <p className="mt-1 text-[24px] font-black text-[#2563eb] font-mono leading-none">
+            {snapshot.institutions.filter((i) => i.region === 'Southern').length} Colleges
+          </p>
+          <span className="text-[11px] text-[#64748b] mt-1 block">Tamil Nadu & Pondicherry</span>
+        </div>
+
+        <div className="rounded-[3px] border border-[#cbd5e1] bg-white p-3.5 shadow-xs">
+          <span className="text-[11px] font-bold text-[#64748b] uppercase tracking-wider block">
+            Western & Central Active
+          </span>
+          <p className="mt-1 text-[24px] font-black text-[#7c3aed] font-mono leading-none">
+            {snapshot.institutions.filter((i) => i.region === 'Western' || i.region === 'Central').length} Colleges
+          </p>
+          <span className="text-[11px] text-[#64748b] mt-1 block">Maharashtra, MP & Goa</span>
+        </div>
+      </div>
+
       <div className="mb-4 grid gap-3 md:grid-cols-5">
         <Field label="Search">
           <input className={inputClass} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name or Permanent ID" />
@@ -189,10 +259,17 @@ export function InstitutionsPage() {
                   </td>
                 </tr>
               ) : null}
-              {rows.map(({ i, m }) => (
+              {rows.map(({ i, m, isMultiBureau, isWatchlist }) => (
                 <tr key={i.id} className="hover:bg-[#f8fafc] transition">
                   <td className="px-3 py-2.5 font-mono font-bold text-[#003366]">{i.aicte_permanent_id}</td>
-                  <td className="px-3 py-2.5 font-bold text-[#002244]">{i.institution_name}</td>
+                  <td className="px-3 py-2.5">
+                    <div className="font-bold text-[#002244]">{i.institution_name}</div>
+                    {isMultiBureau ? (
+                      <span className="inline-block bg-[#fee2e2] text-[#b91c1c] border border-[#fca5a5] text-[10px] font-bold px-1.5 py-0.2 rounded mt-0.5">
+                        ⚠️ Cross-Bureau Active Alert
+                      </span>
+                    ) : null}
+                  </td>
                   <td className="px-3 py-2.5 text-[#334155]">{i.state}</td>
                   <td className="px-3 py-2.5 text-[#334155]">{i.region}</td>
                   <td className="px-3 py-2.5 text-center font-bold text-[#003366]">{m.total}</td>
@@ -200,12 +277,12 @@ export function InstitutionsPage() {
                   <td className="px-3 py-2.5 text-center font-bold text-[#b91c1c]">{m.overdue}</td>
                   <td className="px-3 py-2.5 text-center font-medium text-[#475569]">{m.activeBureaus}</td>
                   <td className="px-3 py-2.5">
-                    {m.risk ? (
+                    {isWatchlist ? (
                       <span className="inline-block bg-[#fee2e2] text-[#b91c1c] border border-[#fecdd3] text-[11px] font-bold px-2 py-0.5 rounded">
                         High Attention
                       </span>
                     ) : (
-                      <span className="text-[#64748b] text-[12px]">Normal</span>
+                      <span className="text-[#15803d] font-semibold text-[12px]">Normal</span>
                     )}
                   </td>
                   <td className="px-3 py-2.5 text-[#64748b] text-[12px]">{m.lastActivity ? m.lastActivity.slice(0, 10) : '—'}</td>

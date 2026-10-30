@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { Link } from 'react-router-dom'
 import { GovernmentTopBar, OfficialAicteHeader } from '../components/AicteBrand'
-import { getSnapshot, requestOTP, submitPublicComplaint, subscribe, verifyOTP, getPublicTracking } from '../demo/store'
+import { Button } from '../components/ui'
+import { getSnapshot, requestOTP, submitPublicComplaint, subscribe, verifyOTP, getPublicTracking, getCaseForInstitution, submitPublicInstitutionResponse } from '../demo/store'
 import { CATEGORIES, COMPLAINANT_TYPES, PRIORITIES, type Category, type ComplainantType, type Priority, type Institution } from '../types'
 import { CATEGORY_SUB_CATEGORIES } from '../lib/constants'
 import {
@@ -31,7 +32,7 @@ const FORM_STEPS = [
 
 export function PublicPortalPage() {
   const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
-  const [activeTab, setActiveTab] = useState<'lodge' | 'track'>('lodge')
+  const [activeTab, setActiveTab] = useState<'lodge' | 'track' | 'institution'>('lodge')
 
   // Step state for lodging a complaint
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1)
@@ -100,6 +101,21 @@ export function PublicPortalPage() {
   const [trackContact, setTrackContact] = useState('')
   const [trackError, setTrackError] = useState<string | null>(null)
   const [trackingResult, setTrackingResult] = useState<any | null>(null)
+
+  // Institution Response Desk state
+  const [instPermId, setInstPermId] = useState('1-10023412')
+  const [instCaseRef, setInstCaseRef] = useState('RB-2026-001084')
+  const [instLookupResult, setInstLookupResult] = useState<any | null>(null)
+  const [instLookupError, setInstLookupError] = useState<string | null>(null)
+  const [respondentName, setRespondentName] = useState('')
+  const [respondentDesignation, setRespondentDesignation] = useState('Principal / Director')
+  const [respondentEmail, setRespondentEmail] = useState('')
+  const [respondentPhone, setRespondentPhone] = useState('')
+  const [instExplanation, setInstExplanation] = useState('')
+  const [instDocs, setInstDocs] = useState<{ name: string; type: string }[]>([])
+  const [instCertified, setInstCertified] = useState(false)
+  const [instSubmitSuccess, setInstSubmitSuccess] = useState<any | null>(null)
+  const [instSubmitError, setInstSubmitError] = useState<string | null>(null)
 
   // Timer countdown hook for 5-minute OTP
   useEffect(() => {
@@ -276,6 +292,66 @@ export function PublicPortalPage() {
     }
   }
 
+  // Institution Response Desk Handlers
+  const handleInstitutionLookup = (e: React.FormEvent) => {
+    e.preventDefault()
+    setInstLookupError(null)
+    setInstLookupResult(null)
+    setInstSubmitSuccess(null)
+
+    if (!instPermId.trim() || !instCaseRef.trim()) {
+      setInstLookupError('Please enter both AICTE Permanent ID and Inquiry Reference / Case ID.')
+      return
+    }
+
+    const res = getCaseForInstitution(instPermId, instCaseRef)
+    if (res.ok) {
+      setInstLookupResult(res)
+      setRespondentEmail(res.institution.contact_email)
+      setRespondentPhone(res.institution.contact_phone)
+    } else {
+      setInstLookupError(res.error)
+    }
+  }
+
+  const handleInstitutionSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    setInstSubmitError(null)
+
+    if (!respondentName.trim() || !instExplanation.trim()) {
+      setInstSubmitError('Please provide respondent name and full written explanation.')
+      return
+    }
+
+    if (!instCertified) {
+      setInstSubmitError('You must solemnly affirm the statutory certification checkbox.')
+      return
+    }
+
+    const res = submitPublicInstitutionResponse({
+      permanentId: instPermId,
+      caseIdOrRef: instCaseRef,
+      respondentName: respondentName.trim(),
+      respondentDesignation: respondentDesignation.trim(),
+      officialEmail: respondentEmail.trim(),
+      officialPhone: respondentPhone.trim(),
+      explanation: instExplanation.trim(),
+      documentNames: instDocs.map((d) => d.name),
+    })
+
+    if (res.ok) {
+      setInstSubmitSuccess({
+        case_id: res.case_id,
+        institution_name: res.institution_name,
+        timestamp: new Date().toISOString(),
+        ack_number: `ACK-INST-${Math.floor(100000 + Math.random() * 900000)}`,
+      })
+      setInstLookupResult(null)
+    } else {
+      setInstSubmitError(res.error)
+    }
+  }
+
   // Format seconds to mm:ss
   const formatTime = (secs: number) => {
     const m = Math.floor(secs / 60)
@@ -330,6 +406,17 @@ export function PublicPortalPage() {
             >
               <Search size={15} />
               <span>Track Complaint Status</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('institution')}
+              className={`px-3.5 py-1.5 rounded-[3px] text-[13px] font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                activeTab === 'institution'
+                  ? 'bg-[#ff9933] text-[#002244] shadow-xs'
+                  : 'bg-[#002244] text-white/90 hover:bg-[#002a54]'
+              }`}
+            >
+              <Building size={15} />
+              <span>Institution Response Desk</span>
             </button>
             <Link
               to="/login"
@@ -1218,6 +1305,361 @@ export function PublicPortalPage() {
                 <div className="bg-[#f8fafc] border border-[#e2e8f0] p-3 rounded-[3px] text-[11px] text-[#64748b] text-center">
                   Confidential internal officer remarks and intra-bureau communications are protected under AICTE administrative regulations.
                 </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* INSTITUTION RESPONSE DESK FLOW */}
+        {activeTab === 'institution' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-[3px] border border-[#cbd5e1] p-5 shadow-xs">
+              <div className="flex items-center justify-between border-b border-[#e2e8f0] pb-3 mb-4">
+                <div className="flex items-center gap-2.5 text-[#003366]">
+                  <Building size={24} className="text-[#003366]" />
+                  <div>
+                    <h2 className="text-[17px] font-bold tracking-tight">
+                      Institution Compliance & Clarification Desk
+                    </h2>
+                    <p className="text-[12px] text-[#64748b]">
+                      Official Single Window for Colleges & Universities to Furnish Clarifications & Action Taken Reports (ATRs)
+                    </p>
+                  </div>
+                </div>
+                <span className="hidden sm:inline-block bg-[#eff6ff] text-[#1e40af] font-bold text-[11px] px-2.5 py-1 rounded border border-[#bfdbfe]">
+                  Statutory Non-Repudiation Gateway
+                </span>
+              </div>
+
+              {/* Inquiry Lookup Section */}
+              <form onSubmit={handleInstitutionLookup} className="space-y-4">
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[12px] font-bold text-[#003366] uppercase tracking-wide mb-1">
+                      AICTE Permanent Institution ID *
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full px-3 py-2 text-[13px] border border-[#cbd5e1] rounded-[3px] focus:outline-none focus:border-[#003366] font-mono"
+                      placeholder="e.g. 1-10023412"
+                      value={instPermId}
+                      onChange={(e) => setInstPermId(e.target.value)}
+                      required
+                    />
+                    <div className="mt-1 flex items-center gap-1.5 text-[11px] text-[#64748b]">
+                      <span>Quick Demo Preset:</span>
+                      <button
+                        type="button"
+                        onClick={() => setInstPermId('1-10023412')}
+                        className="text-[#003366] underline font-bold cursor-pointer"
+                      >
+                        1-10023412 (ABC College)
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[12px] font-bold text-[#003366] uppercase tracking-wide mb-1">
+                      Inquiry Reference / Case ID *
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full px-3 py-2 text-[13px] border border-[#cbd5e1] rounded-[3px] focus:outline-none focus:border-[#003366] font-mono"
+                      placeholder="e.g. RB-2026-001084 or REF-2026-TN-00184"
+                      value={instCaseRef}
+                      onChange={(e) => setInstCaseRef(e.target.value)}
+                      required
+                    />
+                    <div className="mt-1 flex items-center gap-1.5 text-[11px] text-[#64748b]">
+                      <span>Quick Demo Preset:</span>
+                      <button
+                        type="button"
+                        onClick={() => setInstCaseRef('RB-2026-001084')}
+                        className="text-[#003366] underline font-bold cursor-pointer"
+                      >
+                        RB-2026-001084
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-2">
+                  <p className="text-[12px] text-[#64748b]">
+                    Only authorized institutional heads or liaison officers are permitted to file statutory clarifications.
+                  </p>
+                  <button
+                    type="submit"
+                    className="bg-[#003366] hover:bg-[#002244] text-white font-bold text-[13px] px-5 py-2 rounded-[3px] transition flex items-center gap-2 cursor-pointer shadow-xs"
+                  >
+                    <Search size={15} />
+                    <span>Retrieve Inquiry File</span>
+                  </button>
+                </div>
+              </form>
+
+              {/* Error Banner */}
+              {instLookupError && (
+                <div className="mt-4 bg-[#fef2f2] border border-[#fecdd3] p-3 rounded-[3px] text-[13px] text-[#b91c1c] flex items-center gap-2">
+                  <AlertTriangle size={16} />
+                  <span>{instLookupError}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Submission Success Receipt */}
+            {instSubmitSuccess && (
+              <div className="bg-white rounded-[3px] border-2 border-emerald-600 p-6 shadow-md space-y-4">
+                <div className="flex items-center gap-3 text-emerald-700">
+                  <CheckCircle2 size={32} className="shrink-0" />
+                  <div>
+                    <h3 className="text-[18px] font-black text-emerald-800">
+                      Formal Institutional Explanation Received & Recorded
+                    </h3>
+                    <p className="text-[12px] text-emerald-600">
+                      Acknowledgment Generated · Bureau Examination Proceeding Initiated
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-[#f0fdf4] border border-emerald-200 rounded-[3px] p-4 text-[13px] space-y-2 font-mono">
+                  <div className="flex justify-between border-b border-emerald-200 pb-2">
+                    <span className="text-[#64748b]">Acknowledgment Receipt No:</span>
+                    <strong className="text-[#003366]">{instSubmitSuccess.ack_number}</strong>
+                  </div>
+                  <div className="flex justify-between border-b border-emerald-200 pb-2">
+                    <span className="text-[#64748b]">Institution Name:</span>
+                    <strong>{instSubmitSuccess.institution_name}</strong>
+                  </div>
+                  <div className="flex justify-between border-b border-emerald-200 pb-2">
+                    <span className="text-[#64748b]">Grievance Case Reference:</span>
+                    <strong className="text-[#003366]">#{instSubmitSuccess.case_id}</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#64748b]">Submission Timestamp:</span>
+                    <span>{new Date(instSubmitSuccess.timestamp).toLocaleString('en-IN')} IST</span>
+                  </div>
+                </div>
+
+                <div className="text-[12px] text-[#475569] leading-relaxed">
+                  Your formal response has been placed in the official AICTE Case Dossier and dispatched to the assigned Bureau Case Officer. The case state has been advanced to <strong>Active Regulatory Review</strong>.
+                </div>
+              </div>
+            )}
+
+            {/* Active Inquiry File Found & Response Form */}
+            {instLookupResult && (
+              <div className="bg-white rounded-[3px] border border-[#cbd5e1] p-6 shadow-sm space-y-5">
+                {/* Inquiry Overview Card */}
+                <div className="rounded-[3px] bg-[#f8fafc] border border-[#cbd5e1] p-4 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#e2e8f0] pb-2">
+                    <div>
+                      <span className="text-[11px] font-bold text-[#64748b] uppercase tracking-wider">
+                        Active Statutory Inquiry
+                      </span>
+                      <h4 className="text-[16px] font-black text-[#003366]">
+                        {instLookupResult.institution.institution_name}
+                      </h4>
+                    </div>
+                    <span className="bg-[#003366] text-white text-[12px] font-mono font-bold px-2.5 py-1 rounded">
+                      CASE #{instLookupResult.case.case_id}
+                    </span>
+                  </div>
+
+                  <div className="grid sm:grid-cols-3 gap-3 text-[12px]">
+                    <div>
+                      <span className="text-[#64748b] block">Jurisdiction Bureau:</span>
+                      <strong className="text-[#003366]">{instLookupResult.bureau?.name} ({instLookupResult.bureau?.code})</strong>
+                    </div>
+                    <div>
+                      <span className="text-[#64748b] block">Complaint Category:</span>
+                      <strong className="text-[#1e293b]">{instLookupResult.case.complaint_category}</strong>
+                    </div>
+                    <div>
+                      <span className="text-[#64748b] block">Current Verification Status:</span>
+                      <span className="inline-block bg-[#fef3c7] text-[#92400e] px-2 py-0.5 rounded font-bold text-[11px]">
+                        {instLookupResult.case.verification_status.replaceAll('_', ' ')}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-white rounded border border-[#e2e8f0]">
+                    <span className="text-[11px] font-bold text-[#64748b] uppercase tracking-wide block mb-1">
+                      Alleged Grievance Matter on Record:
+                    </span>
+                    <p className="font-bold text-[#003366] text-[13px]">{instLookupResult.case.subject}</p>
+                    <p className="text-[12px] text-[#475569] mt-1 italic">
+                      "{instLookupResult.case.description}"
+                    </p>
+                  </div>
+                </div>
+
+                {/* Response Submission Form */}
+                <form onSubmit={handleInstitutionSubmit} className="space-y-4">
+                  <h3 className="font-bold text-[15px] text-[#003366] border-b border-[#e2e8f0] pb-2">
+                    Furnish Institutional Explanation & Supporting Records
+                  </h3>
+
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[12px] font-bold text-[#003366] uppercase mb-1">
+                        Respondent Officer Full Name *
+                      </label>
+                      <input
+                        type="text"
+                        className="w-full px-3 py-2 text-[13px] border border-[#cbd5e1] rounded-[3px] focus:outline-none focus:border-[#003366]"
+                        placeholder="e.g. Dr. K. S. Rajan"
+                        value={respondentName}
+                        onChange={(e) => setRespondentName(e.target.value)}
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[12px] font-bold text-[#003366] uppercase mb-1">
+                        Official Designation *
+                      </label>
+                      <select
+                        className="w-full px-3 py-2 text-[13px] border border-[#cbd5e1] rounded-[3px] focus:outline-none focus:border-[#003366] bg-white font-semibold"
+                        value={respondentDesignation}
+                        onChange={(e) => setRespondentDesignation(e.target.value)}
+                      >
+                        <option value="Principal">Principal</option>
+                        <option value="Director">Director</option>
+                        <option value="Dean (Academic Affairs)">Dean (Academic Affairs)</option>
+                        <option value="Registrar">Registrar</option>
+                        <option value="Authorized Legal Counsel">Authorized Legal Counsel</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[12px] font-bold text-[#003366] uppercase mb-1">
+                        Official Institutional Email *
+                      </label>
+                      <input
+                        type="email"
+                        className="w-full px-3 py-2 text-[13px] border border-[#cbd5e1] rounded-[3px] focus:outline-none focus:border-[#003366]"
+                        value={respondentEmail}
+                        onChange={(e) => setRespondentEmail(e.target.value)}
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[12px] font-bold text-[#003366] uppercase mb-1">
+                        Contact Phone Number *
+                      </label>
+                      <input
+                        type="tel"
+                        className="w-full px-3 py-2 text-[13px] border border-[#cbd5e1] rounded-[3px] focus:outline-none focus:border-[#003366]"
+                        value={respondentPhone}
+                        onChange={(e) => setRespondentPhone(e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[12px] font-bold text-[#003366] uppercase mb-1">
+                      Comprehensive Written Explanation / Action Taken Report (ATR) *
+                    </label>
+                    <textarea
+                      rows={5}
+                      className="w-full px-3 py-2 text-[13px] border border-[#cbd5e1] rounded-[3px] focus:outline-none focus:border-[#003366] leading-relaxed"
+                      placeholder="Detail the factual background, institution's explanation against the allegations, relevant Approval Process Handbook clauses, resolution passed by governing body, or redressal provided to complainant..."
+                      value={instExplanation}
+                      onChange={(e) => setInstExplanation(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  {/* Supporting Evidence Documents */}
+                  <div>
+                    <label className="block text-[12px] font-bold text-[#003366] uppercase mb-1">
+                      Attach Official Supporting Evidence / Resolutions
+                    </label>
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      {instDocs.map((doc, idx) => (
+                        <span
+                          key={idx}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#f1f5f9] border border-[#cbd5e1] text-[12px] text-[#003366] font-semibold"
+                        >
+                          <FileText size={13} />
+                          <span>{doc.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => setInstDocs(instDocs.filter((_, i) => i !== idx))}
+                            className="text-[#94a3b8] hover:text-[#b91c1c] ml-1"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => {
+                          const mockFiles = [
+                            'Fee_Regulatory_Committee_Order_2026.pdf',
+                            'Governing_Council_Resolution_Oct2026.pdf',
+                            'Student_Receipt_Ledger_Extract.pdf',
+                            'Institutional_Circular_Refunds.pdf',
+                          ]
+                          const randomFile = mockFiles[instDocs.length % mockFiles.length]
+                          setInstDocs([...instDocs, { name: randomFile, type: 'Evidence' }])
+                        }}
+                        className="text-[12px] flex items-center gap-1.5"
+                      >
+                        <Upload size={14} />
+                        <span>Upload Authenticated PDF Evidence</span>
+                      </Button>
+                      <span className="text-[11px] text-[#64748b]">
+                        PDF, DOCX formats supported up to 10 MB per file.
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Statutory Certification */}
+                  <div className="bg-[#fffbeb] border border-[#fef08a] p-3 rounded-[3px]">
+                    <label className="flex items-start gap-2.5 cursor-pointer text-[12px] text-[#854d0e]">
+                      <input
+                        type="checkbox"
+                        checked={instCertified}
+                        onChange={(e) => setInstCertified(e.target.checked)}
+                        className="mt-0.5 rounded text-[#003366]"
+                      />
+                      <span className="leading-relaxed">
+                        <strong>Statutory Institutional Certification:</strong> I solemnly affirm that the facts and records furnished above are true and authenticated extracts from official institutional registers. I am aware that submitting misleading or fraudulent information to AICTE constitutes a violation of the AICTE Approval Process Regulations.
+                      </span>
+                    </label>
+                  </div>
+
+                  {instSubmitError && (
+                    <div className="bg-[#fef2f2] border border-[#fecdd3] p-3 rounded-[3px] text-[13px] text-[#b91c1c] flex items-center gap-2">
+                      <AlertTriangle size={16} />
+                      <span>{instSubmitError}</span>
+                    </div>
+                  )}
+
+                  <div className="flex justify-end gap-3 pt-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => setInstLookupResult(null)}
+                    >
+                      Cancel
+                    </Button>
+                    <button
+                      type="submit"
+                      className="bg-[#003366] hover:bg-[#002244] text-white font-bold text-[13px] px-6 py-2.5 rounded-[3px] transition flex items-center gap-2 cursor-pointer shadow-xs"
+                    >
+                      <Send size={15} />
+                      <span>Submit Official Explanation to AICTE</span>
+                    </button>
+                  </div>
+                </form>
               </div>
             )}
           </div>

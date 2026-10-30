@@ -63,8 +63,6 @@ export function OverlapPage() {
     })
   }, [snapshot, q, profile])
 
-  if (!profile) return null
-
   const high = links.filter((l) => l.similarity_score >= 85).length
   const cross = links.filter((l) => l.relationship_type === 'CROSS_BUREAU_OVERLAP').length
   const coord = links.filter((l) => l.coordination_requested || l.relationship_type === 'REQUIRES_COORDINATION').length
@@ -102,18 +100,21 @@ export function OverlapPage() {
   }, [snapshot.institutions, snapshot.cases, snapshot.bureaus])
 
   const handleLink = (aId: string, bId: string, caseAName: string, caseBName: string) => {
+    if (!profile) return
     linkCases(aId, bId, profile)
     setActionFeedback(`✓ Successfully linked ${caseAName} and ${caseBName}. Both case files remain independent.`)
     setTimeout(() => setActionFeedback(null), 4000)
   }
 
   const handleCoordination = (linkId: string, caseAName: string, caseBName: string) => {
+    if (!profile) return
     requestCoordination(linkId, profile)
     setActionFeedback(`⏳ Bilateral Coordination requested between ${caseAName} and ${caseBName}. Concerned Bureau Heads notified.`)
     setTimeout(() => setActionFeedback(null), 4000)
   }
 
   const handleUnrelated = (linkId: string) => {
+    if (!profile) return
     markUnrelated(linkId, profile)
     setActionFeedback(`Pair marked as unrelated and dismissed from the active coordination queue.`)
     setTimeout(() => setActionFeedback(null), 4000)
@@ -124,7 +125,7 @@ export function OverlapPage() {
 
   const handleSendCoordMessage = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!coordMessageModal || !coordMessageText.trim()) return
+    if (!profile || !coordMessageModal || !coordMessageText.trim()) return
 
     const newMsg = {
       sender: `${profile.full_name} (${ROLE_LABEL[profile.role]})`,
@@ -150,6 +151,8 @@ export function OverlapPage() {
 
   // Highlight featured Section 16 showcase link
   const featuredLink = links.find((l) => l.similarity_score >= 90) || links[0]
+
+  if (!profile) return null
 
   return (
     <div className="space-y-5">

@@ -14,6 +14,7 @@ import {
   requestCoordination,
   requestInformation,
   requestInstitutionResponse,
+  issueOfficialNotice,
   requestTransfer,
   roleCan,
   subscribe,
@@ -22,6 +23,7 @@ import {
   uploadDocument,
 } from '../demo/store'
 import { CASE_STATUSES, type CaseDocument, type CaseStatus } from '../types'
+import { OfficialNoticeModal } from '../components/OfficialNoticeModal'
 import { ActionNotice, Breadcrumbs, Button, Card, ConfirmationDialog, DocumentViewerModal, EmptyState, Field, PriorityBadge, SlaBadge, StatusBadge, inputClass } from '../components/ui'
 import { formatDate, formatDateTime, slaState } from '../lib/utils'
 
@@ -37,6 +39,7 @@ export function CaseDetailPage() {
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [viewingDoc, setViewingDoc] = useState<CaseDocument | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [noticeModalOpen, setNoticeModalOpen] = useState(false)
   if (!profile) return null
   const c = snapshot.cases.find((x) => x.id === id)
   if (!c) return <EmptyState title="Case not found" body="This case is not in the current workspace or is outside your access." />
@@ -334,13 +337,20 @@ export function CaseDetailPage() {
                 </span>
                 <div className="flex flex-col gap-2">
                   <Button
+                    variant="primary"
+                    className="bg-[#003366] text-white flex items-center justify-center gap-1.5 font-bold shadow-xs hover:bg-[#002244]"
+                    onClick={() => setNoticeModalOpen(true)}
+                  >
+                    <span>📜 Draft Official Notice / Show Cause</span>
+                  </Button>
+                  <Button
                     variant="secondary"
                     onClick={() => {
                       requestInstitutionResponse(c.id, 'Institution is requested to furnish comments with supporting records within 7 days.', profile)
                       setNotice('Formal notice dispatched to institution. Status updated to Pending Institution Response.')
                     }}
                   >
-                    Send Institution Response Notice
+                    Send Quick Clarification Demand
                   </Button>
                   <Button
                     variant="secondary"
@@ -530,6 +540,19 @@ export function CaseDetailPage() {
         dataUrl={viewingDoc?.data_url}
         storagePath={viewingDoc?.storage_path}
         onClose={() => setViewingDoc(null)}
+      />
+
+      <OfficialNoticeModal
+        isOpen={noticeModalOpen}
+        onClose={() => setNoticeModalOpen(false)}
+        caseData={c}
+        institution={inst}
+        bureau={bureau}
+        officer={profile}
+        onNoticeIssued={(noticeType, noticeNumber, subject, days) => {
+          issueOfficialNotice(c.id, noticeType, noticeNumber, subject, days, profile)
+          setNotice(`Official ${noticeType} [${noticeNumber}] successfully issued. Mandate set to ${days} days.`)
+        }}
       />
     </div>
   )

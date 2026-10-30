@@ -52,26 +52,38 @@ export function DashboardPage() {
   const [actionFeedback, setActionFeedback] = useState<string | null>(null)
   const [actionTab, setActionTab] = useState<'all' | 'assigned' | 'transfers' | 'evidence'>('all')
 
-  if (!profile) return null
+  const stats = profile ? dashboardStats(profile) : {
+    total: 0, pending: 0, underProcess: 0, disposed: 0, overdue: 0, overlaps: 0,
+    monthDeltaPct: 0, pendingOverdue: 0, highPriorityOverlaps: 0, crossBureau: 0,
+    awaitingCoordination: 0, assignedToMe: 0, pendingTransfers: 0, byStatus: {},
+    byBureau: [], monthlyTrend: [], ageing: [],
+  }
 
-  const stats = dashboardStats(profile)
-  const cases = visibleCases(profile)
+  const cases = useMemo(() => (profile ? visibleCases(profile) : []), [profile, snapshot])
 
   // 1. Pending incoming transfers to this bureau
-  const pendingTransfers = cases.filter(
-    (c) => c.pending_transfer_bureau_id && (c.pending_transfer_bureau_id === profile.bureau_id || profile.role === 'SUPER_ADMIN')
-  )
+  const pendingTransfers = useMemo(() => {
+    if (!profile) return []
+    return cases.filter(
+      (c) => c.pending_transfer_bureau_id && (c.pending_transfer_bureau_id === profile.bureau_id || profile.role === 'SUPER_ADMIN')
+    )
+  }, [cases, profile])
 
   // 2. Cases assigned directly to this official
-  const assignedToMe = cases.filter((c) => c.assigned_officer_id === profile.id)
+  const assignedToMe = useMemo(() => {
+    if (!profile) return []
+    return cases.filter((c) => c.assigned_officer_id === profile.id)
+  }, [cases, profile])
 
   // 3. Cases requiring evidence or institution response
-  const pendingEvidence = cases.filter(
-    (c) =>
-      c.status === 'PENDING_INFORMATION' ||
-      c.verification_status === 'EVIDENCE_REQUIRED' ||
-      c.verification_status === 'INSTITUTION_RESPONSE_REQUIRED'
-  )
+  const pendingEvidence = useMemo(() => {
+    return cases.filter(
+      (c) =>
+        c.status === 'PENDING_INFORMATION' ||
+        c.verification_status === 'EVIDENCE_REQUIRED' ||
+        c.verification_status === 'INSTITUTION_RESPONSE_REQUIRED'
+    )
+  }, [cases])
 
   // Consolidated action items queue
   const allActionItems = useMemo(() => {
@@ -109,6 +121,7 @@ export function DashboardPage() {
   }, [actionTab, allActionItems])
 
   const handleDashboardAcceptTransfer = (caseId: string, caseRef: string) => {
+    if (!profile) return
     acceptTransfer(caseId, profile)
     setActionFeedback(`✓ Transfer of ${caseRef} accepted. File is now under your Bureau authority.`)
     setTimeout(() => setActionFeedback(null), 4000)
@@ -183,6 +196,8 @@ export function DashboardPage() {
       setAuthError(res.error || 'Authentication failed. Please verify credentials.')
     }
   }
+
+  if (!profile) return null
 
   const isAdminWorkspace = profile.role === 'SUPER_ADMIN' || profile.role === 'SENIOR_MANAGEMENT'
 
