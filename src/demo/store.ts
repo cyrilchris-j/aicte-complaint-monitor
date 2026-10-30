@@ -615,6 +615,36 @@ export function requestInstitutionResponse(caseId: string, text: string, actor: 
   }
 }
 
+export function issueOfficialNotice(
+  caseId: string,
+  noticeType: string,
+  noticeNumber: string,
+  subject: string,
+  responseDeadlineDays: number,
+  actor: Profile,
+) {
+  mutate((s) => {
+    const c = s.cases.find((x) => x.id === caseId)
+    if (!c) return
+    c.verification_status = 'INSTITUTION_RESPONSE_REQUIRED'
+    c.status = 'PENDING_INFORMATION'
+    const desc = `Issued Official ${noticeType} [Ref: ${noticeNumber}] with ${responseDeadlineDays}-day response mandate: "${subject}"`
+    addAction(c.id, 'NOTICE_ISSUED', desc, actor.id, c.bureau_id, c.bureau_id)
+    audit(actor.id, `Issued Official Notice (${noticeType})`, 'complaint_case', c.id, c.status, 'PENDING_INFORMATION')
+    notify(c.assigned_officer_id ?? actor.id, `Official Notice Issued`, `${noticeType} dispatched for ${c.case_id}.`, c.id, 'NOTICE', 'HIGH')
+  })
+
+  if (supabaseEnabled && supabase) {
+    fireAndForget(
+      supabase.from('complaint_cases').update({
+        verification_status: 'INSTITUTION_RESPONSE_REQUIRED',
+        status: 'PENDING_INFORMATION',
+        updated_at: nowIso(),
+      }).eq('id', caseId)
+    )
+  }
+}
+
 export function recordInstitutionResponse(caseId: string, text: string, actor: Profile) {
   mutate((s) => {
     const c = s.cases.find((x) => x.id === caseId)
@@ -1450,4 +1480,107 @@ export function getPublicTracking(caseIdOrRef: string, contactIdentifier: string
     },
   }
 }
+
+export function getCaseForInstitution(permanentId: string, caseIdOrRef: string) {
+  const normPerm = permanentId.trim().toUpperCase()
+  const normRef = caseIdOrRef.trim().toUpperCase()
+
+  const inst = state.institutions.find(
+    (i) => i.aicte_permanent_id.trim().toUpperCase() === normPerm
+  )
+  if (!inst) {
+    return { ok: false as const, error: `No institution found with AICTE Permanent ID: "${permanentId}".` }
+  }
+
+  const c = state.cases.find(
+    (x) =>
+      x.institution_id === inst.id &&
+      (x.case_id.trim().toUpperCase() === normRef ||
+        x.complainant_reference.trim().toUpperCase() === normRef ||
+        normRef.includes(x.case_id.trim().toUpperCase()))
+  )
+
+  if (!c) {
+    return {
+      ok: false as const,
+      error: `No grievance or notice reference matched "${caseIdOrRef}" for ${inst.institution_name}.`,
+    }
+  }
+
+  const bureau = state.bureaus.find((b) => b.id === c.bureau_id)
+  return {
+    ok: true as const,
+    institution: inst,
+    bureau,
+    case: c,
+  }
+}
+
+export function submitPublicInstitutionResponse(params: {
+  permanentId: string
+  caseIdOrRef: string
+  respondentName: string
+  respondentDesignation: string
+  officialEmail: string
+  officialPhone: string
+  explanation: string
+  documentNames?: string[]
+}) {
+  const lookup = getCaseForInstitution(params.permanentId, params.caseIdOrRef)
+  if (!lookup.ok) return lookup
+
+  const c = lookup.case
+  const inst = lookup.institution
+
+  mutate((s) => {
+    const targetCase = s.cases.find((x) => x.id === c.id)
+    if (!targetCase) return
+
+    targetCase.institution_response_received = true
+    targetCase.documents_received = true
+    if (
+      targetCase.status === 'PENDING_INFORMATION' ||
+      targetCase.status === 'NEW' ||
+      targetCase.status === 'UNDER_REVIEW'
+    ) {
+      targetCase.status = 'UNDER_PROCESS'
+    }
+    targetCase.verification_status = 'UNDER_REVIEW'
+    targetCase.last_action_date = nowIso()
+
+    const actionText = `Formal Institution Response submitted by ${params.respondentName} (${params.respondentDesignation}, Ph: ${params.officialPhone}): "${params.explanation.slice(0, 240)}..."`
+    addAction(targetCase.id, 'INSTITUTION_RESPONSE', actionText, 'institution-portal', targetCase.bureau_id, targetCase.bureau_id)
+
+    if (params.documentNames && params.documentNames.length > 0) {
+      for (const docName of params.documentNames) {
+        s.documents.push({
+          id: uid('doc'),
+          case_id: targetCase.id,
+          document_name: docName,
+          document_type: 'Institution Explanation / Evidence',
+          storage_path: `institution-replies/${targetCase.case_id}_${docName}`,
+          uploaded_by: `${params.respondentName} (${inst.institution_name})`,
+          verification_status: 'UNDER_REVIEW',
+          uploaded_at: nowIso(),
+        })
+      }
+    }
+
+    audit('institution-portal', 'Institution submitted formal explanation', 'complaint_case', targetCase.id, 'PENDING_INFORMATION', 'UNDER_PROCESS')
+
+    if (targetCase.assigned_officer_id) {
+      notify(
+        targetCase.assigned_officer_id,
+        'Institution response on record',
+        `${inst.institution_name} has furnished formal clarification for ${targetCase.case_id}.`,
+        targetCase.id,
+        'RESPONSE',
+        'HIGH'
+      )
+    }
+  })
+
+  return { ok: true as const, case_id: c.case_id, institution_name: inst.institution_name }
+}
+
 
