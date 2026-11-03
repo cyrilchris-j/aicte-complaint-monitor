@@ -24,6 +24,7 @@ import {
 } from '../demo/store'
 import { CASE_STATUSES, type CaseDocument, type CaseStatus } from '../types'
 import { OfficialNoticeModal } from '../components/OfficialNoticeModal'
+import { AiCasePanel } from '../components/AiCasePanel'
 import { ActionNotice, Breadcrumbs, Button, Card, ConfirmationDialog, DocumentViewerModal, EmptyState, Field, PriorityBadge, SlaBadge, StatusBadge, inputClass } from '../components/ui'
 import { formatDate, formatDateTime, slaState } from '../lib/utils'
 
@@ -204,6 +205,14 @@ export function CaseDetailPage() {
           <p className="mt-2 font-semibold">Action: Human verification required. The system does not reject these complaints automatically.</p>
         </div>
       ) : null}
+
+      {/* AI Case Intelligence Panel */}
+      <AiCasePanel
+        complaint={c}
+        institution={inst}
+        bureau={bureau}
+        relatedCasesCount={insights.relatedCount}
+      />
 
       <div className="grid gap-4 xl:grid-cols-3">
         <Card title="Complaint summary" className="xl:col-span-2">

@@ -1,11 +1,10 @@
 import { ChevronDown, Menu, Search, X, PlusCircle, Sparkles } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { Suspense, useMemo, useState, useSyncExternalStore } from 'react'
 import { Link, NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { NAV_ITEMS, ROLE_LABEL } from '../../lib/constants'
 import { cn } from '../../lib/utils'
 import { getSnapshot, globalSearch, subscribe } from '../../demo/store'
-import { useSyncExternalStore } from 'react'
 import { GovernmentTopBar, OfficialAicteHeader } from '../AicteBrand'
 import { SihDemoModal } from '../SihDemoModal'
 
@@ -266,7 +265,19 @@ export function AppShell() {
 
       {/* 5. Main Work Area */}
       <main id="main-content" className="flex-1 max-w-7xl w-full mx-auto p-4 lg:p-6">
-        <Outlet />
+        <Suspense
+          fallback={
+            <div className="flex min-h-[40vh] items-center justify-center">
+              <div className="space-y-3 w-full max-w-sm px-4">
+                <div className="h-6 rounded bg-[#e2e8f0] animate-pulse" />
+                <div className="h-4 rounded bg-[#e2e8f0] animate-pulse w-3/4" />
+                <div className="h-4 rounded bg-[#e2e8f0] animate-pulse w-1/2" />
+              </div>
+            </div>
+          }
+        >
+          <Outlet />
+        </Suspense>
       </main>
 
       {/* 6. Official AICTE Government Footer */}

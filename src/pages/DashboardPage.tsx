@@ -59,7 +59,11 @@ export function DashboardPage() {
     byBureau: [], monthlyTrend: [], ageing: [],
   }
 
-  const cases = useMemo(() => (profile ? visibleCases(profile) : []), [profile, snapshot])
+  // Evaluates visible cases for this profile; snapshot.cases ensures reactive update on store changes
+  const cases = useMemo(
+    () => (profile && snapshot.cases.length >= 0 ? visibleCases(profile) : []),
+    [profile, snapshot.cases],
+  )
 
   // 1. Pending incoming transfers to this bureau
   const pendingTransfers = useMemo(() => {

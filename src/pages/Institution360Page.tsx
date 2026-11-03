@@ -104,6 +104,11 @@ export function Institution360Page() {
                     ✓ Normal Inquiry Volume
                   </span>
                 )}
+                <div className="mt-1.5">
+                  <Link to="/iri" className="text-[11px] font-bold text-[#003366] hover:underline">
+                    View in Institutional Risk Index (IRI) & Inspection Squad Dossier →
+                  </Link>
+                </div>
               </dd>
             </div>
           </dl>

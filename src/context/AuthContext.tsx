@@ -39,6 +39,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
+// AuthProvider and useAuth are intentionally co-located — this is a standard
+// React pattern for context + hook pairing. Fast-refresh warning is suppressed.
+// oxlint-disable-next-line only-export-components
 export function useAuth() {
   const ctx = useContext(AuthContext)
   if (!ctx) throw new Error('useAuth must be used within AuthProvider')

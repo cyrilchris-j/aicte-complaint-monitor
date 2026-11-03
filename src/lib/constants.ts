@@ -47,6 +47,11 @@ export const NAV_ITEMS: {
     roles: ['SUPER_ADMIN', 'SENIOR_MANAGEMENT', 'BUREAU_HEAD'],
   },
   {
+    to: '/iri',
+    label: 'Risk Index (IRI)',
+    roles: ['SUPER_ADMIN', 'SENIOR_MANAGEMENT', 'BUREAU_HEAD'],
+  },
+  {
     to: '/verification',
     label: 'Verification Queue',
     roles: ['SUPER_ADMIN', 'BUREAU_HEAD', 'CASE_OFFICER', 'REGIONAL_OFFICER'],

@@ -1,8 +1,14 @@
-import { useMemo, useState, useSyncExternalStore } from 'react'
+import { useMemo, useState, useCallback, useSyncExternalStore } from 'react'
 import { Link } from 'react-router-dom'
 import { getSnapshot, subscribe } from '../demo/store'
 import { Button, PageHeader } from '../components/ui'
 import { formatDateTime, csvEscape, downloadText } from '../lib/utils'
+import {
+  buildAuditChain,
+  verifyAuditChain,
+  type ChainedAuditEntry,
+  type ChainVerificationResult,
+} from '../lib/auditChain'
 import {
   ShieldCheck,
   Search,
@@ -15,6 +21,9 @@ import {
   FileText,
   AlertTriangle,
   Lock,
+  CheckCircle2,
+  XCircle,
+  RefreshCw,
 } from 'lucide-react'
 
 const ACTION_CATEGORIES = [
@@ -56,6 +65,28 @@ export function AuditPage() {
   const [selectedUser, setSelectedUser] = useState<string>('ALL')
   const [page, setPage] = useState(1)
   const pageSize = 20
+
+  // ── SHA-256 Chain Verification State ─────────────────────────────────────
+  const [chainBuilding, setChainBuilding] = useState(false)
+  const [chain, setChain] = useState<ChainedAuditEntry[] | null>(null)
+  const [verificationResult, setVerificationResult] = useState<ChainVerificationResult | null>(null)
+  const [showChainPanel, setShowChainPanel] = useState(false)
+
+  const runVerification = useCallback(async () => {
+    setChainBuilding(true)
+    setVerificationResult(null)
+    try {
+      const entries = [...snapshot.auditLogs].sort((a, b) => a.created_at.localeCompare(b.created_at))
+      const built = await buildAuditChain(entries)
+      setChain(built)
+      const result = await verifyAuditChain(built)
+      setVerificationResult(result)
+    } catch (e) {
+      console.error('Chain verification failed:', e)
+    } finally {
+      setChainBuilding(false)
+    }
+  }, [snapshot.auditLogs])
 
   const filteredLogs = useMemo(() => {
     return snapshot.auditLogs.filter((a) => {
@@ -266,10 +297,119 @@ export function AuditPage() {
         </div>
         <div className="flex items-center gap-2">
           <span className="inline-flex items-center gap-1 bg-white text-[#1e40af] px-2 py-0.5 rounded border border-[#bfdbfe] text-[11px] font-bold font-mono">
-            <Lock size={11} /> SHA-256 Verified
+            <Lock size={11} /> SHA-256 Chained
           </span>
+          <Button
+            variant="secondary"
+            onClick={() => { setShowChainPanel(true); void runVerification() }}
+            disabled={chainBuilding}
+            className="flex items-center gap-1.5 text-[12px]"
+          >
+            {chainBuilding
+              ? <><RefreshCw size={12} className="animate-spin" /> Verifying…</>
+              : <><ShieldCheck size={12} /> Verify Chain Integrity</>
+            }
+          </Button>
         </div>
       </div>
+
+      {/* SHA-256 Chain Verification Panel */}
+      {showChainPanel && (
+        <div className={`rounded-[3px] border-2 p-4 text-[13px] shadow-xs ${
+          verificationResult === null
+            ? 'border-[#bfdbfe] bg-[#eff6ff]'
+            : verificationResult.valid
+              ? 'border-[#bbf7d0] bg-[#f0fdf4]'
+              : 'border-[#fca5a5] bg-[#fff5f5]'
+        }`}>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2 font-bold text-[14px]">
+              {verificationResult === null ? (
+                <><RefreshCw size={16} className="text-[#2563eb] animate-spin" /> Computing SHA-256 hash chain…</>
+              ) : verificationResult.valid ? (
+                <><CheckCircle2 size={18} className="text-[#15803d]" /><span className="text-[#15803d]">Audit Chain Integrity: VERIFIED ✓</span></>
+              ) : (
+                <><XCircle size={18} className="text-[#b91c1c]" /><span className="text-[#b91c1c]">Audit Chain Integrity: COMPROMISED ✗</span></>
+              )}
+            </div>
+            <button
+              onClick={() => setShowChainPanel(false)}
+              className="text-[#64748b] hover:text-[#1e293b] font-bold text-[18px] leading-none cursor-pointer"
+            >×</button>
+          </div>
+
+          {verificationResult && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="bg-white rounded-[3px] border border-[#e2e8f0] p-2 text-center">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#64748b]">Total Entries</p>
+                  <p className="text-[22px] font-black text-[#003366] font-mono">{verificationResult.totalEntries}</p>
+                </div>
+                <div className="bg-white rounded-[3px] border border-[#e2e8f0] p-2 text-center">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#64748b]">Hash Verified</p>
+                  <p className="text-[22px] font-black text-[#15803d] font-mono">{verificationResult.verifiedEntries}</p>
+                </div>
+                <div className="bg-white rounded-[3px] border border-[#e2e8f0] p-2 text-center">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#64748b]">Tampered</p>
+                  <p className="text-[22px] font-black text-[#b91c1c] font-mono">
+                    {verificationResult.totalEntries - verificationResult.verifiedEntries}
+                  </p>
+                </div>
+                <div className="bg-white rounded-[3px] border border-[#e2e8f0] p-2 text-center">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#64748b]">Algorithm</p>
+                  <p className="text-[13px] font-black text-[#003366] font-mono mt-1">SHA-256</p>
+                </div>
+              </div>
+
+              {/* Final Hash Display */}
+              <div className="bg-white rounded-[3px] border border-[#e2e8f0] p-3">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[#64748b] mb-1">Chain Tip Hash (Final Block)</p>
+                <p className="font-mono text-[11px] text-[#003366] break-all">{verificationResult.finalHash}</p>
+              </div>
+
+              {!verificationResult.valid && verificationResult.firstBrokenSeq && (
+                <div className="bg-[#fee2e2] rounded-[3px] border border-[#fca5a5] p-3">
+                  <p className="font-bold text-[#b91c1c]">
+                    ⚠ Chain broken at sequence #{verificationResult.firstBrokenSeq} (Entry: {verificationResult.firstBrokenId})
+                  </p>
+                  <p className="text-[12px] text-[#991b1b] mt-1">
+                    One or more audit entries may have been tampered with after initial recording. This requires immediate investigation by the AICTE Regulatory Integrity Unit.
+                  </p>
+                </div>
+              )}
+
+              {/* Chain Sample — First 3 & Last 1 */}
+              {chain && chain.length > 0 && (
+                <div>
+                  <p className="text-[11px] font-bold text-[#64748b] uppercase tracking-wider mb-2">Hash Chain Sample</p>
+                  <div className="space-y-1 font-mono text-[10px]">
+                    {[...chain.slice(0, 3), ...(chain.length > 4 ? [null] : []), chain.at(-1)!].map((entry, idx) =>
+                      entry === null ? (
+                        <div key="ellipsis" className="text-[#94a3b8] text-center">… {chain.length - 4} more entries …</div>
+                      ) : (
+                        <div key={entry.id} className="flex items-start gap-2 bg-white rounded border border-[#e2e8f0] p-2">
+                          <span className="text-[#003366] font-black shrink-0">#{entry.seq}</span>
+                          <div className="min-w-0">
+                            <div className="text-[#64748b] truncate">prev: {entry.prevHash.slice(0, 32)}…</div>
+                            <div className={`font-bold truncate ${idx < 3 || idx === chain.length - 1 ? 'text-[#15803d]' : 'text-[#b91c1c]'}`}>
+                              hash: {entry.hash.slice(0, 32)}…
+                            </div>
+                            <div className="text-[#94a3b8]">{entry.action} · {entry.timestamp.slice(0, 19)}</div>
+                          </div>
+                        </div>
+                      )
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <p className="text-[10px] text-[#64748b]">
+                Verified at: {new Date(verificationResult.verifiedAt).toLocaleString('en-IN')} IST · Web Crypto API (SHA-256) · WORM Integrity Protocol
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Overview Metric Cards */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

@@ -1,25 +1,30 @@
+import { lazy } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import { RequireAuth } from './components/RequireAuth'
 import { AppShell } from './components/layout/AppShell'
+
+// ── Eager-loaded (small, always needed immediately) ───────────────────────────
 import { LoginPage } from './pages/LoginPage'
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { PublicPortalPage } from './pages/PublicPortalPage'
-import { DashboardPage } from './pages/DashboardPage'
 
-import { InstitutionsPage } from './pages/InstitutionsPage'
-import { Institution360Page } from './pages/Institution360Page'
-import { ComplaintsPage } from './pages/ComplaintsPage'
-import { NewComplaintPage } from './pages/NewComplaintPage'
-import { CaseDetailPage } from './pages/CaseDetailPage'
-import { OverlapPage } from './pages/OverlapPage'
-import { VerificationPage } from './pages/VerificationPage'
-import { AssignedPage } from './pages/AssignedPage'
-import { NotificationsPage } from './pages/NotificationsPage'
-import { ReportsPage } from './pages/ReportsPage'
-import { UsersPage } from './pages/UsersPage'
-import { AuditPage } from './pages/AuditPage'
-import { SettingsPage } from './pages/SettingsPage'
+// ── Lazy-loaded routes (split into separate chunks) ───────────────────────────
+const DashboardPage      = lazy(() => import('./pages/DashboardPage').then(m => ({ default: m.DashboardPage })))
+const InstitutionsPage   = lazy(() => import('./pages/InstitutionsPage').then(m => ({ default: m.InstitutionsPage })))
+const Institution360Page = lazy(() => import('./pages/Institution360Page').then(m => ({ default: m.Institution360Page })))
+const ComplaintsPage     = lazy(() => import('./pages/ComplaintsPage').then(m => ({ default: m.ComplaintsPage })))
+const NewComplaintPage   = lazy(() => import('./pages/NewComplaintPage').then(m => ({ default: m.NewComplaintPage })))
+const CaseDetailPage     = lazy(() => import('./pages/CaseDetailPage').then(m => ({ default: m.CaseDetailPage })))
+const OverlapPage        = lazy(() => import('./pages/OverlapPage').then(m => ({ default: m.OverlapPage })))
+const VerificationPage   = lazy(() => import('./pages/VerificationPage').then(m => ({ default: m.VerificationPage })))
+const AssignedPage       = lazy(() => import('./pages/AssignedPage').then(m => ({ default: m.AssignedPage })))
+const NotificationsPage  = lazy(() => import('./pages/NotificationsPage').then(m => ({ default: m.NotificationsPage })))
+const ReportsPage        = lazy(() => import('./pages/ReportsPage').then(m => ({ default: m.ReportsPage })))
+const UsersPage          = lazy(() => import('./pages/UsersPage').then(m => ({ default: m.UsersPage })))
+const AuditPage          = lazy(() => import('./pages/AuditPage').then(m => ({ default: m.AuditPage })))
+const SettingsPage       = lazy(() => import('./pages/SettingsPage').then(m => ({ default: m.SettingsPage })))
+const IriPage            = lazy(() => import('./pages/IriPage').then(m => ({ default: m.IriPage })))
 
 export default function App() {
   return (
@@ -46,6 +51,14 @@ export default function App() {
               element={
                 <RequireAuth roles={['SUPER_ADMIN', 'SENIOR_MANAGEMENT', 'BUREAU_HEAD']}>
                   <OverlapPage />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/iri"
+              element={
+                <RequireAuth roles={['SUPER_ADMIN', 'SENIOR_MANAGEMENT', 'BUREAU_HEAD']}>
+                  <IriPage />
                 </RequireAuth>
               }
             />
@@ -108,4 +121,3 @@ export default function App() {
     </AuthProvider>
   )
 }
-

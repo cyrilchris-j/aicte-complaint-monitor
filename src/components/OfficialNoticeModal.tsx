@@ -41,6 +41,14 @@ const NOTICE_TYPES = [
   },
 ]
 
+function getTodayFormatted() {
+  return new Date().toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  })
+}
+
 export function OfficialNoticeModal({
   isOpen,
   onClose,
@@ -58,15 +66,11 @@ export function OfficialNoticeModal({
   const [customDirectives, setCustomDirectives] = useState(
     `1. Furnish para-wise comments supported by authenticated copies of relevant institutional records, Fee Regulatory Committee sanctions, and student notifications.\n2. Submit authenticated student registers and fee collection receipts pertaining to the academic period under question.\n3. Depute an authorized representative not below the rank of Vice Principal / Dean if summoned by the Bureau.`,
   )
+  const [todayStr] = useState(getTodayFormatted)
 
   if (!isOpen) return null
 
   const noticeConfig = NOTICE_TYPES.find((n) => n.id === selectedType) || NOTICE_TYPES[0]
-  const todayStr = new Date().toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
-  })
   const noticeNumber = `AICTE/${bureau.code}/ENF/2026/${caseData.case_id}-N`
 
   const handlePrint = () => {

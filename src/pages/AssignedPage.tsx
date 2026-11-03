@@ -13,39 +13,42 @@ export function AssignedPage() {
   const [q, setQ] = useState('')
   const [actionNotice, setActionNotice] = useState<string | null>(null)
 
-  // 1. Cases directly assigned to the logged-in user
-  const assignedToMe = profile ? snapshot.cases.filter((c) => c.assigned_officer_id === profile.id) : []
+  // 1–3: Derive all filtered lists inside one stable useMemo to avoid unstable array deps
+  const { assignedToMe, pendingTransfers, inScope, activeList } = useMemo(() => {
+    const allCases = profile ? snapshot.cases : []
 
-  // 2. Cases requested for transfer to the user's bureau
-  const pendingTransfers = profile
-    ? snapshot.cases.filter(
-        (c) =>
-          c.pending_transfer_bureau_id &&
-          (c.pending_transfer_bureau_id === profile.bureau_id || profile.role === 'SUPER_ADMIN')
-      )
-    : []
+    const assignedToMe = allCases.filter((c) => c.assigned_officer_id === profile?.id)
 
-  // 3. All cases assigned within user's visibility scope
-  const inScope = profile ? visibleCases(profile).filter((c) => c.assigned_officer_id) : []
+    const pendingTransfers = profile
+      ? allCases.filter(
+          (c) =>
+            c.pending_transfer_bureau_id &&
+            (c.pending_transfer_bureau_id === profile.bureau_id || profile.role === 'SUPER_ADMIN'),
+        )
+      : []
 
-  const activeList = useMemo(() => {
+    const inScope = profile ? visibleCases(profile).filter((c) => c.assigned_officer_id) : []
+
     let base = assignedToMe
     if (tab === 'transfers') base = pendingTransfers
     if (tab === 'scope') base = inScope
 
-    if (!q.trim()) return base
     const query = q.trim().toLowerCase()
-    return base.filter((c) => {
-      const inst = snapshot.institutions.find((i) => i.id === c.institution_id)
-      const officer = snapshot.profiles.find((p) => p.id === c.assigned_officer_id)
-      return (
-        c.case_id.toLowerCase().includes(query) ||
-        c.subject.toLowerCase().includes(query) ||
-        inst?.institution_name.toLowerCase().includes(query) ||
-        officer?.full_name.toLowerCase().includes(query)
-      )
-    })
-  }, [tab, assignedToMe, pendingTransfers, inScope, q, snapshot])
+    const filtered = query
+      ? base.filter((c) => {
+          const inst = snapshot.institutions.find((i) => i.id === c.institution_id)
+          const officer = snapshot.profiles.find((p) => p.id === c.assigned_officer_id)
+          return (
+            c.case_id.toLowerCase().includes(query) ||
+            c.subject.toLowerCase().includes(query) ||
+            inst?.institution_name.toLowerCase().includes(query) ||
+            officer?.full_name.toLowerCase().includes(query)
+          )
+        })
+      : base
+
+    return { assignedToMe, pendingTransfers, inScope, activeList: filtered }
+  }, [snapshot, profile, tab, q])
 
   const handleAccept = (caseId: string) => {
     if (!profile) return
